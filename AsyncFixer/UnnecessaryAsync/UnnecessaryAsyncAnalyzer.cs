@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Linq;
+using System.Diagnostics;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -132,6 +133,13 @@ namespace AsyncFixer.UnnecessaryAsync
                 var totalAwait = node.Body.DescendantNodes().OfType<AwaitExpressionSyntax>().Count();
 
                 if (numAwait < totalAwait)
+                {
+                    return;
+                }
+
+                // Make sure that we do not give a warning about the await statement involving a disposable object.
+                var localDeclarationStatements = node.Body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>();
+                if (node.Body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Count() > 0)
                 {
                     return;
                 }

@@ -145,6 +145,24 @@ public static class MyExtensions
             VerifyCSharpDiagnostic(test);
         }
 
+        [Fact]
+        public void UsingStatementNoWarning()
+        {
+            var test = @"
+using System;
+using System.IO;
+
+class Program
+{   
+    static void foo()
+    {
+        using var stream = new FileStream("", FileMode.Open);
+        stream.CopyToAsync(stream);
+    }
+}";
+            VerifyCSharpDiagnostic(test);
+        }
+
         protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
         {
             return new AsyncCallInsideUsingBlockAnalyzer();

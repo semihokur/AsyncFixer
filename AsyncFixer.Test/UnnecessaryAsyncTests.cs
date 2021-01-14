@@ -201,7 +201,7 @@ class Program
             VerifyCSharpFix(test, fixtest);
         }
 
-        // TODO: Task<object> ve Task<int> !!!
+        // Task<object> ve Task<int> !!!
         [Fact]
         public void UnnecessaryAsyncTest6()
         {
@@ -293,6 +293,68 @@ class Program
 }";
 
             VerifyCSharpFix(test, fixtest);
+        }
+
+        [Fact]
+        public void AwaitAfterUsingStatement()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+using System.IO;
+
+class Program
+{   
+    async Task foo()
+    {
+        MemoryStream destination = new MemoryStream();
+        using FileStream source = File.Open(""data"", FileMode.Open);
+        await source.CopyToAsync(destination);
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+using System.IO;
+
+class Program
+{   
+    Task foo()
+    {
+        MemoryStream destination = new MemoryStream();
+        using FileStream source = File.Open(""data"", FileMode.Open);
+        return source.CopyToAsync(destination);
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        [Fact]
+        public void AwaitAfterInsideUsingBlock()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+using System.IO;
+
+class Program
+{   
+    static async Task foo()
+    {
+        MemoryStream destination = new MemoryStream();
+        using(FileStream source = File.Open(""data"", FileMode.Open))
+        {
+            await source.CopyToAsync(destination);  // LEAKING TASK REFERENCE OUTSIDE 
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
         }
 
         protected override CodeFixProvider GetCSharpCodeFixProvider()
