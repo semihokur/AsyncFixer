@@ -1,5 +1,10 @@
 # Release History
 
+## 1.4.0 (2021-01)
+- UnnecessaryAsync analyzer: Fix false warnings with `using` expression statements
+- UnnecessaryAsync analyzer: Support for expression-bodied members
+- BlockingCallInsideAsync analyzer: Stop suggesting async calls from non-system assemblies
+
 ## 1.3.0 (2020-05)
 - Updated Roslyn dependencies to v3.3.1.
 - Fixed several performance bugs.
