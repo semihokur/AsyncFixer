@@ -52,113 +52,123 @@ namespace AsyncFixer.UnnecessaryAsync
         private void AnalyzeMethodDeclaration(SyntaxNodeAnalysisContext context)
         {
             var node = (MethodDeclarationSyntax)context.Node;
+            var diagnostic = Diagnostic.Create(Rule, node.GetLocation(), node.Identifier.Text);
 
-            // If it is a test method, still do it!!! 
-            if (node.IsAsync() && node.Body != null && !node.HasEventArgsParameter() && !node.HasObjectStateParameter() &&
-                !node.IsTestMethod())
+            if (!node.IsAsync() || node.HasEventArgsParameter() || node.HasObjectStateParameter() || node.IsTestMethod())
             {
-                if (context.SemanticModel == null)
+                return;
+            }
+
+            if (node.Body == null && 
+                node.ExpressionBody?.Expression.Kind() == SyntaxKind.AwaitExpression)
+            {
+                // Expression-bodied members 
+                // e.g. public static async Task Foo() => await Task.FromResult(true);
+                context.ReportDiagnostic(diagnostic);
+                return;
+            }
+
+
+            if (node.Body == null || context.SemanticModel == null)
+            {
+                return;
+            }
+
+            var controlFlow = context.SemanticModel.AnalyzeControlFlow(node.Body);
+            if (controlFlow == null)
+            {
+                return;
+            }
+
+            var returnStatements = controlFlow.ReturnStatements;
+            if (returnStatements == null)
+            {
+                return;
+            }
+
+            var numAwait = 0;
+            if (returnStatements.Any())
+            {
+                foreach (var temp in returnStatements)
                 {
-                    return;
-                }
-
-                var controlFlow = context.SemanticModel.AnalyzeControlFlow(node.Body);
-                if (controlFlow == null)
-                {
-                    return;
-                }
-
-                var returnStatements = controlFlow.ReturnStatements;
-                if (returnStatements == null)
-                {
-                    return;
-                }
-
-                var numAwait = 0;
-                if (returnStatements.Any())
-                {
-                    foreach (var temp in returnStatements)
-                    {
-                        var returnStatement = temp as ReturnStatementSyntax;
-                        if (returnStatement == null)
-                        {
-                            return;
-                        }
-
-                        if (returnStatement.Expression == null ||
-                            returnStatement.Expression.Kind() != SyntaxKind.AwaitExpression)
-                        {
-                            return;
-                        }
-
-                        if (HasUsingOrTryParent(returnStatement, node))
-                        {
-                            return;
-                        }
-
-                        var returnExpressionType = context.SemanticModel.GetTypeInfo(returnStatement.Expression);
-                        if (returnExpressionType.Type != returnExpressionType.ConvertedType)
-                        {
-                            // Task does not support covariance: Task<int> cannot be converted to Task<object>.
-                            return;
-                        }
-
-                        numAwait++;
-                    }
-                }
-                else
-                {
-                    // if awaitExpression is the last statement's expression
-                    var lastStatement = node.Body.Statements.LastOrDefault();
-                    if (lastStatement == null)
+                    var returnStatement = temp as ReturnStatementSyntax;
+                    if (returnStatement == null)
                     {
                         return;
                     }
 
-                    var exprStmt = lastStatement as ExpressionStatementSyntax;
-                    if (exprStmt == null || exprStmt.Expression == null ||
-                        exprStmt.Expression.Kind() != SyntaxKind.AwaitExpression)
+                    if (returnStatement.Expression == null ||
+                        returnStatement.Expression.Kind() != SyntaxKind.AwaitExpression)
                     {
                         return;
                     }
 
-                    if (HasUsingOrTryParent(exprStmt, node))
+                    if (HasUsingOrTryParent(returnStatement, node))
                     {
+                        return;
+                    }
+
+                    var returnExpressionType = context.SemanticModel.GetTypeInfo(returnStatement.Expression);
+                    if (returnExpressionType.Type != returnExpressionType.ConvertedType)
+                    {
+                        // Task does not support covariance: Task<int> cannot be converted to Task<object>.
                         return;
                     }
 
                     numAwait++;
                 }
-
-                var awaitExpressions = node.Body.DescendantNodes().OfType<AwaitExpressionSyntax>();
-
-                if (numAwait < awaitExpressions.Count())
+            }
+            else
+            {
+                // if awaitExpression is the last statement's expression
+                var lastStatement = node.Body.Statements.LastOrDefault();
+                if (lastStatement == null)
                 {
                     return;
                 }
 
-                // Make sure that we do not give a warning about the await statement involving a disposable object.
-
-                // Retrieve the disposable object identifiers from the using statements. 
-                // For instance, for the following statement, we'd like to return 'source'.
-                //      using FileStream source = File.Open("data", FileMode.Open);
-                var disposableObjectNames = node.Body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>()
-                    .Where(a => a.UsingKeyword.Kind() != SyntaxKind.None)
-                    .SelectMany(a => a.DescendantNodes().OfType<VariableDeclaratorSyntax>().Select(b => b.Identifier.ValueText));
-                if (disposableObjectNames.Any())
+                var exprStmt = lastStatement as ExpressionStatementSyntax;
+                if (exprStmt == null || exprStmt.Expression == null ||
+                    exprStmt.Expression.Kind() != SyntaxKind.AwaitExpression)
                 {
-                    // There are disposable objects.
-                    // Let's check whether at least one await expression uses one of those disposable objects.
-                    if (awaitExpressions.SelectMany(a => a.DescendantNodes().OfType<IdentifierNameSyntax>())
-                        .Any(a => disposableObjectNames.Contains(a.Identifier.ValueText)))
-                    {
-                        return;
-                    }
+                    return;
                 }
 
-                var diagnostic = Diagnostic.Create(Rule, node.GetLocation(), node.Identifier.Text);
-                context.ReportDiagnostic(diagnostic);
+                if (HasUsingOrTryParent(exprStmt, node))
+                {
+                    return;
+                }
+
+                numAwait++;
             }
+
+            var awaitExpressions = node.Body.DescendantNodes().OfType<AwaitExpressionSyntax>();
+
+            if (numAwait < awaitExpressions.Count())
+            {
+                return;
+            }
+
+            // Make sure that we do not give a warning about the await statement involving a disposable object.
+
+            // Retrieve the disposable object identifiers from the using statements. 
+            // For instance, for the following statement, we'd like to return 'source'.
+            //      using FileStream source = File.Open("data", FileMode.Open);
+            var disposableObjectNames = node.Body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>()
+                .Where(a => a.UsingKeyword.Kind() != SyntaxKind.None)
+                .SelectMany(a => a.DescendantNodes().OfType<VariableDeclaratorSyntax>().Select(b => b.Identifier.ValueText));
+            if (disposableObjectNames.Any())
+            {
+                // There are disposable objects.
+                // Let's check whether at least one await expression uses one of those disposable objects.
+                if (awaitExpressions.SelectMany(a => a.DescendantNodes().OfType<IdentifierNameSyntax>())
+                    .Any(a => disposableObjectNames.Contains(a.Identifier.ValueText)))
+                {
+                    return;
+                }
+            }
+
+            context.ReportDiagnostic(diagnostic);
         }
     }
 }

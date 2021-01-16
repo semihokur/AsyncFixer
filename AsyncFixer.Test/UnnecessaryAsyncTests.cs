@@ -346,6 +346,33 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        [Fact]
+        public void UnnecessaryAsyncAwaitInsideExpressionBody()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    public static async Task Foo() => await Task.FromResult(true);
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    public static Task Foo() => Task.FromResult(true);
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new UnnecessaryAsyncFixer();
