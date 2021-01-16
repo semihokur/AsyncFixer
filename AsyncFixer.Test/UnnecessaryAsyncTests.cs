@@ -9,7 +9,7 @@ namespace AsyncFixer.Test
     public class UnnecessaryAsyncTests : CodeFixVerifier
     {
         [Fact]
-        public void UnnecessaryAsyncTest1()
+        public void NoWarn_UnnecessaryAsyncTest1()
         {
             //No diagnostics expected to show up
 
@@ -18,7 +18,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task<int> foo(int a)
     {
         if (a == 0)
@@ -65,7 +65,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     static async void foo()
     {
         await Task.Delay(2).ConfigureAwait(false);
@@ -80,13 +80,13 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     static Task foo()
     {
         return Task.Delay(2);
     }
 }";
-            
+
             VerifyCSharpFix(test, fixtest);
         }
 
@@ -98,7 +98,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task<int> foo()
     {
         return await Task.Run(()=> 3);
@@ -113,13 +113,13 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     Task<int> foo()
     {
         return Task.Run(()=> 3);
     }
 }";
-            
+
             VerifyCSharpFix(test, fixtest);
         }
 
@@ -131,7 +131,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task<int> foo(int b)
     {
         if (b > 5)
@@ -150,7 +150,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     Task<int> foo(int b)
     {
         if (b > 5)
@@ -160,7 +160,7 @@ class Program
         return foo(b);
     }
 }";
-            
+
             VerifyCSharpFix(test, fixtest);
         }
 
@@ -172,7 +172,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     static async Task foo()
     {
         var t = Task.Delay(2);
@@ -189,7 +189,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     static Task foo()
     {
         var t = Task.Delay(2);
@@ -197,20 +197,20 @@ class Program
         return t;
     }
 }";
-            
+
             VerifyCSharpFix(test, fixtest);
         }
 
         // Task<object> ve Task<int> !!!
         [Fact]
-        public void UnnecessaryAsyncTest6()
+        public void NoWarn_UnnecessaryAsyncTest6()
         {
             var test = @"
 using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task<object> foo(int i)
     {
         return await Task.Run(()=>3);
@@ -229,7 +229,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo(int i)
     {
         if (i > 1)
@@ -248,7 +248,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     Task foo(int i)
     {
         if (i > 1)
@@ -270,7 +270,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task Test2Async(string str)
     {
         await Task.Delay(1);
@@ -285,7 +285,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     Task Test2Async(string str)
     {
         return Task.Delay(1);
@@ -300,7 +300,7 @@ class Program
         /// Otherwise, exceptions can occur as the task continues with the disposed objects.
         /// </summary>
         [Fact]
-        public void AwaitAfterUsingStatement()
+        public void NoWarn_AwaitAfterUsingStatement()
         {
             var test = @"
 using System;
@@ -308,7 +308,7 @@ using System.Threading.Tasks;
 using System.IO;
 
 class Program
-{   
+{
     async Task foo()
     {
         MemoryStream destination = new MemoryStream();
@@ -324,7 +324,7 @@ class Program
         /// Do not remove await expressions involving disposable objects inside using block
         /// </summary>
         [Fact]
-        public void AwaitInsideUsingBlock()
+        public void NoWarn_AwaitInsideUsingBlock()
         {
             var test = @"
 using System;
@@ -332,13 +332,13 @@ using System.Threading.Tasks;
 using System.IO;
 
 class Program
-{   
+{
     static async Task foo()
     {
         MemoryStream destination = new MemoryStream();
         using(FileStream source = File.Open(""data"", FileMode.Open))
         {
-            await source.CopyToAsync(destination);  // LEAKING TASK REFERENCE OUTSIDE 
+            await source.CopyToAsync(destination);  // LEAKING TASK REFERENCE OUTSIDE
         }
     }
 }";

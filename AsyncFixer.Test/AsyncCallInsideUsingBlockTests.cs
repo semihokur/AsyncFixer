@@ -11,7 +11,7 @@ namespace AsyncFixer.Test
     public class AsyncCallInsideUsingBlockTests : CodeFixVerifier
     {
         [Fact]
-        public void AsyncCallInsideUsingBlockTest1()
+        public void NoWarn_AsyncCallInsideUsingBlockTest1()
         {
             //No diagnostics expected to show up
 
@@ -55,7 +55,7 @@ using System;
 using System.IO
 
 class Program
-{   
+{
     static void foo()
     {
         var newStream = new FileStream("""", FileMode.Create);
@@ -77,7 +77,7 @@ using System;
 using System.IO
 
 class Program
-{   
+{
     static void foo()
     {
         var newStream = new FileStream("""", FileMode.Create);
@@ -92,14 +92,14 @@ class Program
         }
 
         [Fact]
-        public void AsyncCallInsideUsingBlockTest4()
+        public void NoWarn_AsyncCallInsideUsingBlockTest4()
         {
             var test = @"
 using System;
 using System.IO;
 
 class Program
-{   
+{
     static void foo()
     {
         using (var stream = new FileStream("", FileMode.Open))
@@ -116,7 +116,7 @@ class Program
         }
 
         [Fact]
-        public void AsyncCallInsideUsingBlockTest5()
+        public void NoWarn_AsyncCallInsideUsingBlockTest5()
         {
             var test = @"
 using System.IO;
@@ -146,14 +146,14 @@ public static class MyExtensions
         }
 
         [Fact]
-        public void UsingStatementNoWarning()
+        public void NoWarn_UsingStatementNoWarning()
         {
             var test = @"
 using System;
 using System.IO;
 
 class Program
-{   
+{
     static void foo()
     {
         using var stream = new FileStream("", FileMode.Open);

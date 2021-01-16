@@ -10,7 +10,7 @@ namespace AsyncFixer.Test
     {
         //No diagnostics expected to show up
         [Fact]
-        public void BlockingCallInsideAsyncTest1()
+        public void NoWarn_BlockingCallInsideAsyncTest1()
         {
             var test = @"
 using System;
@@ -18,7 +18,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         var t = Task.Run(() => 4);
@@ -62,7 +62,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         Thread.Sleep(1000);
@@ -78,7 +78,7 @@ class Program
 //using System.Threading.Tasks;
 
 //class Program
-//{   
+//{
 //    Thread t;
 //    async Task foo()
 //    {
@@ -98,7 +98,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         var t = Task.Run(() => 4);
@@ -115,7 +115,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         var t = Task.Run(() => 4);
@@ -136,7 +136,7 @@ using System.IO;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         StreamReader reader = null;
@@ -154,7 +154,7 @@ using System.IO;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         StreamReader reader = null;
@@ -174,7 +174,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         // comment
@@ -199,7 +199,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         // comment
@@ -227,7 +227,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         // comment
@@ -251,7 +251,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         // comment
@@ -310,7 +310,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         boo(0);
@@ -332,7 +332,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         await booAsync(0);
@@ -358,7 +358,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         Task.Run(()=>2).Wait();
@@ -372,7 +372,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task foo()
     {
         await Task.Run(() => 2);
@@ -383,7 +383,7 @@ class Program
         }
 
         [Fact]
-        public void BlockingCallInsideAsyncTest10()
+        public void NoWarn_BlockingCallInsideAsyncTest10()
         {
             // fooAsync is the itself
             var test = @"
@@ -391,7 +391,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task<object> fooAsync(int i)
     {
         await Task.Delay(100);
@@ -408,7 +408,7 @@ class Program
         }
 
         [Fact]
-        public void BlockingCallInsideAsyncTest11()
+        public void NoWarn_BlockingCallInsideAsyncTest11()
         {
             // fooAsync is the itself
             var test = @"
@@ -417,7 +417,7 @@ using System.IO;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async Task<object> fooAsync(int i)
     {
         await Task.Delay(100);
