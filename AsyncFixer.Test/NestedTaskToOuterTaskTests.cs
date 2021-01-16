@@ -100,6 +100,29 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        [Fact]
+        public void GenericTaskType()
+        {
+            var test = @"
+using System.Threading.Tasks;
+
+class Program
+{
+    async void main()
+    {
+        await Task.Factory.StartNew(() => foo());
+    }
+
+    Task<int> foo()
+    {
+        return Task.FromResult(3);
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.NestedTaskToOuterTask };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
         protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
         {
             return new NestedTaskToOuterTaskAnalyzer();
