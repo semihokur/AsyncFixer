@@ -295,6 +295,10 @@ class Program
             VerifyCSharpFix(test, fixtest);
         }
 
+        /// <summary>
+        /// Do not remove await expressions involving disposable objects
+        /// Otherwise, exceptions can occur as the task continues with the disposed objects.
+        /// </summary>
         [Fact]
         public void AwaitAfterUsingStatement()
         {
@@ -313,29 +317,14 @@ class Program
     }
 }";
 
-            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
-            VerifyCSharpDiagnostic(test, expected);
-
-            var fixtest = @"
-using System;
-using System.Threading.Tasks;
-using System.IO;
-
-class Program
-{   
-    Task foo()
-    {
-        MemoryStream destination = new MemoryStream();
-        using FileStream source = File.Open(""data"", FileMode.Open);
-        return source.CopyToAsync(destination);
-    }
-}";
-
-            VerifyCSharpFix(test, fixtest);
+            VerifyCSharpDiagnostic(test);
         }
 
+        /// <summary>
+        /// Do not remove await expressions involving disposable objects inside using block
+        /// </summary>
         [Fact]
-        public void AwaitAfterInsideUsingBlock()
+        public void AwaitInsideUsingBlock()
         {
             var test = @"
 using System;

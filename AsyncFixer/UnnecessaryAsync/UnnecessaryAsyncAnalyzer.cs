@@ -130,18 +130,30 @@ namespace AsyncFixer.UnnecessaryAsync
                     numAwait++;
                 }
 
-                var totalAwait = node.Body.DescendantNodes().OfType<AwaitExpressionSyntax>().Count();
+                var awaitExpressions = node.Body.DescendantNodes().OfType<AwaitExpressionSyntax>();
 
-                if (numAwait < totalAwait)
+                if (numAwait < awaitExpressions.Count())
                 {
                     return;
                 }
 
                 // Make sure that we do not give a warning about the await statement involving a disposable object.
-                var localDeclarationStatements = node.Body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>();
-                if (node.Body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().Count() > 0)
+
+                // Retrieve the disposable object identifiers from the using statements. 
+                // For instance, for the following statement, we'd like to return 'source'.
+                //      using FileStream source = File.Open("data", FileMode.Open);
+                var disposableObjectNames = node.Body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>()
+                    .Where(a => a.UsingKeyword.Kind() != SyntaxKind.None)
+                    .SelectMany(a => a.DescendantNodes().OfType<VariableDeclaratorSyntax>().Select(b => b.Identifier.ValueText));
+                if (disposableObjectNames.Any())
                 {
-                    return;
+                    // There are disposable objects.
+                    // Let's check whether at least one await expression uses one of those disposable objects.
+                    if (awaitExpressions.SelectMany(a => a.DescendantNodes().OfType<IdentifierNameSyntax>())
+                        .Any(a => disposableObjectNames.Contains(a.Identifier.ValueText)))
+                    {
+                        return;
+                    }
                 }
 
                 var diagnostic = Diagnostic.Create(Rule, node.GetLocation(), node.Identifier.Text);
