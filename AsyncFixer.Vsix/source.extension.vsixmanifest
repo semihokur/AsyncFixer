@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="AsyncFixer.Vsix..edab5fce-e3aa-4fea-9d60-a07bc11d493b" Version="1.3.0" Language="en-US" Publisher="Semih Okur"/>
+    <Identity Id="AsyncFixer.Vsix..edab5fce-e3aa-4fea-9d60-a07bc11d493b" Version="1.4.0" Language="en-US" Publisher="Semih Okur"/>
     <DisplayName>AsyncFixer for Visual Studio 2019</DisplayName>
     <Description xml:space="preserve">Advanced async/await Diagnostics and CodeFixes for C#.</Description>
-	<MoreInfo>http://www.asyncfixer.com</MoreInfo>
+	  <MoreInfo>http://www.asyncfixer.com</MoreInfo>
     <License>LICENSE.txt</License>
-    <ReleaseNotes>http://www.asyncfixer.com/CHANGELOG.md</ReleaseNotes>
+    <ReleaseNotes>https://github.com/semihokur/AsyncFixer/blob/main/CHANGELOG.md</ReleaseNotes>
     <Icon>icon.png</Icon>
     <PreviewImage>preview.png</PreviewImage>
     <Tags>asyncfixer analyzers async/await asynchronous concurrency diagnostics codefix roslyn codeanalysis async</Tags>
