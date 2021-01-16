@@ -21,12 +21,13 @@ namespace AsyncFixer
 
         public static bool IsTask(this ITypeSymbol type)
         {
-            return type.ToDisplayString().StartsWith("System.Threading.Tasks.Task", StringComparison.OrdinalIgnoreCase);
+            return type.ContainingNamespace.ToDisplayString() == "System.Threading.Tasks" &&
+                type.Name == "Task";
         }
 
         public static bool ReturnTask(this IMethodSymbol symbol)
         {
-            return !symbol.ReturnsVoid && symbol.ReturnType.ToString().StartsWith("System.Threading.Tasks.Task", StringComparison.OrdinalIgnoreCase);
+            return !symbol.ReturnsVoid && symbol.ReturnType.IsTask();
         }
 
         public static bool IsAsync(this MethodDeclarationSyntax method)

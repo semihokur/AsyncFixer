@@ -167,7 +167,7 @@ class Program
         }
 
         [Fact]
-        public void BlockingCallInsideAsyncTest5()
+        public void NoWarn_BlockingCallInsideAsyncTest5()
         {
             var test = @"
 using System;
@@ -191,83 +191,7 @@ class Program
     }
 }";
 
-            var expected = new DiagnosticResult { Id = DiagnosticIds.BlockingCallInsideAsync };
-            VerifyCSharpDiagnostic(test, expected);
-
-            var fixtest = @"
-using System;
-using System.Threading.Tasks;
-
-class Program
-{
-    async Task foo()
-    {
-        // comment
-        await this.booAsync(0);
-        // end comment
-    }
-    public int boo(int a)
-    {
-        return 3;
-    }
-    public Task<int> booAsync(int a)
-    {
-        return Task.Run(()=>4);
-    }
-}";
-
-            VerifyCSharpFix(test, fixtest);
-        }
-
-        [Fact]
-        public void BlockingCallInsideAsyncTest6()
-        {
-            var test = @"
-using System;
-using System.Threading.Tasks;
-
-class Program
-{
-    async Task foo()
-    {
-        // comment
-        boo(0);
-    }
-    public int boo(int a)
-    {
-        return 3;
-    }
-    public async Task<int> booAsync(int a)
-    {
-        return a;
-    }
-}";
-
-            var expected = new DiagnosticResult { Id = DiagnosticIds.BlockingCallInsideAsync };
-            VerifyCSharpDiagnostic(test, expected);
-
-            var fixtest = @"
-using System;
-using System.Threading.Tasks;
-
-class Program
-{
-    async Task foo()
-    {
-        // comment
-        await booAsync(0);
-    }
-    public int boo(int a)
-    {
-        return 3;
-    }
-    public async Task<int> booAsync(int a)
-    {
-        return a;
-    }
-}";
-
-            VerifyCSharpFix(test, fixtest);
+            VerifyCSharpDiagnostic(test);
         }
 
         [Fact]
@@ -296,54 +220,6 @@ class Program
     {
         Task<int> t = null;
         var r = (await t).CompareTo(5);
-    }
-}";
-
-            VerifyCSharpFix(test, fixtest);
-        }
-
-        [Fact]
-        public void BlockingCallInsideAsyncTest8()
-        {
-            var test = @"
-using System;
-using System.Threading.Tasks;
-
-class Program
-{
-    async Task foo()
-    {
-        boo(0);
-    }
-    int boo(int a)
-    {
-        return a;
-    }
-    async Task<int> booAsync(int a)
-    {
-        return 3;
-    }
-}";
-            var expected = new DiagnosticResult { Id = DiagnosticIds.BlockingCallInsideAsync };
-            VerifyCSharpDiagnostic(test, expected);
-
-            var fixtest = @"
-using System;
-using System.Threading.Tasks;
-
-class Program
-{
-    async Task foo()
-    {
-        await booAsync(0);
-    }
-    int boo(int a)
-    {
-        return a;
-    }
-    async Task<int> booAsync(int a)
-    {
-        return 3;
     }
 }";
 

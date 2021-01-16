@@ -125,14 +125,20 @@ namespace AsyncFixer.BlockingCallInsideAsync
 
         private static string DetectSynchronousUsages(Location location, IMethodSymbol methodCallSymbol, SemanticModel semanticModel)
         {
-            var methodName = methodCallSymbol.Name;
-
-            var typeName = methodCallSymbol.ContainingType.Name;
-
             if (methodCallSymbol.ContainingType == null)
             {
                 return null;
             }
+
+            if (!methodCallSymbol.ContainingAssembly.ToDisplayString().StartsWith("System.", StringComparison.OrdinalIgnoreCase))
+            {
+                // Only look at the symbols from the System assemblies.
+                return null;
+            }
+
+            var methodName = methodCallSymbol.Name;
+
+            var typeName = methodCallSymbol.ContainingType.Name;
 
             if (typeName == "MemoryStream")
             {
