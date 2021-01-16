@@ -28,4 +28,26 @@ Inside a *using* block, developers insert a fire & forget async call which uses 
 
 ### AsyncFixer05: Downcasting from a nested task to an outer task.
 
-Downcasting from a nested task (*Task<Task>*) to a *Task* or awaiting a nested task is dangerous. There is no way to wait for and get the result of the child task. 
+Downcasting from a nested task (*Task<Task>*) to a *Task* or awaiting a nested task is dangerous. There is no way to wait for and get the result of the child task. This usually occurs when mixing `async/await` keywords with the old threading APIs such as `TaskFactory.StartNew`. Here is an example: 
+
+```
+async Task foo()
+{
+    Console.WriteLine("Hello");
+    await Task.Factory.StartNew(() => Task.Delay(1000));
+    Console.WriteLine("World");
+}
+```
+A developer might expect one-second latency between "Hello" and "World" lines. However, those strings will be printed instantaneously without any latency. The reason is that we await `Task<Task>`, which is the return type of `StartNew` call. When we await `Task<Task>`, the inner task is returned which is the result of `Task.Delay` call. As we do not await the inner task, we do not see the effect of the delay call. There are three possible fixes: 
+
+1. We can await the inner task as well: 
+
+`await (await Task.Factory.StartNew(() => Task.Delay(1000)));`
+
+2. We can use `Unwrap` to expose the inner task to the `await` expression:
+
+`await Task.Factory.StartNew(() => Task.Delay(1000)).Unwrap();`
+
+3. If you do not have reasons to use `TaskFactory.StartNew` such as `TaskCreationOptions` and a custom `TaskScheduler`, we should always use `Task.Run` to automatically unwrap the inner task.
+
+`await Task.Run(() => Task.Delay(1000));`
