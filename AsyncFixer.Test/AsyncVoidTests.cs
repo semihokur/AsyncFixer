@@ -10,7 +10,7 @@ namespace AsyncFixer.Test
     public class AsyncVoidTests : CodeFixVerifier
     {
         [Fact]
-        public void AsyncVoidMethodTest1()
+        public void NoWarn_AsyncVoidMethodTest1()
         {
             //No diagnostics expected to show up
 
@@ -19,7 +19,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     static async Task<bool> foo()
     {
         await Task.Delay(1);
@@ -38,7 +38,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     private static async void foo()
     {
         await Task.Delay(1);
@@ -53,7 +53,7 @@ using System;
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     private static async Task foo()
     {
         await Task.Delay(1);

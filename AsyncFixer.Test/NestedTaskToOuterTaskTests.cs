@@ -12,10 +12,10 @@ namespace AsyncFixer.Test
     public class NestedTaskToOuterTaskTests : CodeFixVerifier
     {
         [Fact]
-        public void NestedTaskToOuterTaskTest1()
+        public void NoWarn_NestedTaskToOuterTaskTest1()
         {
-            // nested task can be unwrapped and awaited. 
-            // For this scenario, overloads of Task.Run are provided 
+            // nested task can be unwrapped and awaited.
+            // For this scenario, overloads of Task.Run are provided
             // to accept async functions and automatically unwrap the nested task
             var test = @"
 using System.Threading.Tasks;
@@ -44,7 +44,7 @@ class asd
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     void main()
     {
         Task task = Task.Factory.StartNew(() => foo());
@@ -65,7 +65,7 @@ class Program
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async void main()
     {
         await Task.Factory.StartNew(async () => await fooAsync());
@@ -86,7 +86,7 @@ class Program
 using System.Threading.Tasks;
 
 class Program
-{   
+{
     async void main()
     {
         await Task.Factory.StartNew(() => foo());
