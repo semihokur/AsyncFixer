@@ -70,8 +70,10 @@ namespace AsyncFixer.UnnecessaryAsync
                 newMethodDecl = newMethodDecl.WithReturnType(newType);
             }
 
+            var methodBody = (CSharpSyntaxNode)newMethodDecl.Body ?? newMethodDecl.ExpressionBody;
+
             // (3) For all await expressions, remove await and insert return if there is none. 
-            var awaitExprs = newMethodDecl.Body.DescendantNodes().OfType<AwaitExpressionSyntax>();
+            var awaitExprs = methodBody.DescendantNodes().OfType<AwaitExpressionSyntax>();
 
             var pairs = new List<SyntaxReplacementPair>();
 
@@ -80,6 +82,7 @@ namespace AsyncFixer.UnnecessaryAsync
                 SyntaxNode oldNode;
                 SyntaxNode newNode;
                 var newAwaitExpr = awaitExpr;
+
                 // If there is some ConfigureAwait(false), remove it 
                 var invoc = awaitExpr.Expression as InvocationExpressionSyntax;
                 if (invoc != null)
@@ -93,7 +96,8 @@ namespace AsyncFixer.UnnecessaryAsync
                     }
                 }
 
-                if (awaitExpr.Parent.Kind() == SyntaxKind.ReturnStatement)
+                if (awaitExpr.Parent.Kind() == SyntaxKind.ReturnStatement ||
+                    awaitExpr.Parent.Kind() == SyntaxKind.ArrowExpressionClause)
                 {
                     oldNode = awaitExpr;
                     newNode = newAwaitExpr.Expression.WithAdditionalAnnotations(Simplifier.Annotation);
@@ -107,6 +111,7 @@ namespace AsyncFixer.UnnecessaryAsync
                             .WithLeadingTrivia(oldNode.GetLeadingTrivia())
                             .WithTrailingTrivia(oldNode.GetTrailingTrivia());
                 }
+
                 pairs.Add(new SyntaxReplacementPair(oldNode, newNode));
             }
 
