@@ -9,7 +9,7 @@
     <ReleaseNotes>https://github.com/semihokur/AsyncFixer/blob/main/CHANGELOG.md</ReleaseNotes>
     <Icon>icon.png</Icon>
     <PreviewImage>preview.png</PreviewImage>
-    <Tags>asyncfixer analyzers async/await asynchronous concurrency diagnostics codefix roslyn codeanalysis async</Tags>
+    <Tags>asyncfixer analyzers async/await asynchronous concurrency diagnostics codefix roslyn codeanalysis async await</Tags>
   </Metadata>
   <Installation>
     <InstallationTarget Version="[16.0,17.0)" Id="Microsoft.VisualStudio.Community" />
