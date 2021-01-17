@@ -8,14 +8,15 @@ namespace AsyncFixer.Samples
 {
     class NestedTaskToOuterTask
     {
-        async void main()
-        {
-            await Task.Factory.StartNew(() => foo());
-        }
+        // nested task can be unwrapped and awaited.
+        // For this scenario, overloads of Task.Run are provided
+        // to accept async functions and automatically unwrap the nested task
 
-        TaskCanceledException foo()
+        async Task foo()
         {
-            return new TaskCanceledException();
+            Console.WriteLine("Hello");
+            await Task.Factory.StartNew(() => Task.Delay(1000));
+            Console.WriteLine("World");
         }
     }
 }
