@@ -134,11 +134,11 @@
     <value>Convert void to Task</value>
   </data>
   <data name="AsyncVoidMessageFormat" xml:space="preserve">
-    <value>{0} is a fire &amp; forget async void method. It should return non-void.</value>
+    <value>Avoid unsupported fire &amp; forget async void methods or delegates. Unhandled exceptions will crash the process.</value>
     <comment>The format-able message the diagnostic displays.</comment>
   </data>
   <data name="AsyncVoidTitle" xml:space="preserve">
-    <value>Fire &amp; forget async void methods</value>
+    <value>Fire &amp; forget async void methods or delegates</value>
     <comment>The title of the diagnostic.</comment>
   </data>
   <data name="BlockingCallInsideAsyncDescription" xml:space="preserve">

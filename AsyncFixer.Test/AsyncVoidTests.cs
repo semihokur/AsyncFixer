@@ -63,6 +63,32 @@ class Program
             VerifyCSharpFix(test, fixtest);
         }
 
+        [Fact]
+        public void AsyncVoidAnonymousFunction()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    private static void foo()
+    {
+        bar(async i => await Task.FromResult(i));
+    }
+
+    private static void bar(Action<int> action)
+    {
+        action(3);
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.AsyncVoid };
+            VerifyCSharpDiagnostic(test, expected);
+
+            // No fix should be suggested.
+            VerifyCSharpFix(test, test);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new AsyncVoidFixer();

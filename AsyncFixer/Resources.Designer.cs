@@ -106,7 +106,7 @@ namespace AsyncFixer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} is a fire &amp; forget async void method. It should return non-void..
+        ///   Looks up a localized string similar to Avoid unsupported fire &amp; forget async void methods or delegates. Unhandled exceptions will crash the process..
         /// </summary>
         internal static string AsyncVoidMessageFormat {
             get {
@@ -115,7 +115,7 @@ namespace AsyncFixer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Fire &amp; forget async void methods.
+        ///   Looks up a localized string similar to Fire &amp; forget async void methods or delegates.
         /// </summary>
         internal static string AsyncVoidTitle {
             get {
