@@ -201,9 +201,27 @@ class Program
             VerifyCSharpFix(test, fixtest);
         }
 
-        // Task<object> ve Task<int> !!!
         [Fact]
-        public void NoWarn_UnnecessaryAsyncTest6()
+        public void GenericTask()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task<int> foo(int i)
+    {
+        return await Task.Run(()=>3);
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        [Fact]
+        public void NoWarn_TaskNotCovariant()
         {
             var test = @"
 using System;
@@ -347,7 +365,7 @@ class Program
         }
 
         [Fact]
-        public void UnnecessaryAsyncAwaitInsideExpressionBody()
+        public void ExpressionBody()
         {
             var test = @"
 using System;
@@ -371,6 +389,48 @@ class Program
 }";
 
             VerifyCSharpFix(test, fixtest);
+        }
+
+        [Fact]
+        public void ExpressionBodyWithGenericTask()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    public static async Task<bool> Foo() => await Task.FromResult(true);
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    public static Task<bool> Foo() => Task.FromResult(true);
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        [Fact]
+        public void NoWarn_ExpressionBodyTaskNotCovariant()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    public static async Task<object> Foo() => await Task.FromResult(3);
+}";
+
+            VerifyCSharpDiagnostic(test);
         }
 
         protected override CodeFixProvider GetCSharpCodeFixProvider()

@@ -64,6 +64,14 @@ namespace AsyncFixer.UnnecessaryAsync
             {
                 // Expression-bodied members 
                 // e.g. public static async Task Foo() => await Task.FromResult(true);
+
+                var returnExpressionType = context.SemanticModel.GetTypeInfo(node.ExpressionBody?.Expression);
+                if (returnExpressionType.IsImplicitTypeCasting())
+                {
+                    // Task does not support covariance: Task<int> cannot be converted to Task<object>.
+                    // That's why we cannot remove async/await keywords.
+                    return;
+                }
                 context.ReportDiagnostic(diagnostic);
                 return;
             }
@@ -109,9 +117,9 @@ namespace AsyncFixer.UnnecessaryAsync
                     }
 
                     var returnExpressionType = context.SemanticModel.GetTypeInfo(returnStatement.Expression);
-                    if (returnExpressionType.Type != returnExpressionType.ConvertedType)
+                    if (returnExpressionType.IsImplicitTypeCasting())
                     {
-                        // Task does not support covariance: Task<int> cannot be converted to Task<object>.
+                        // Task does not support covariance.
                         return;
                     }
 
