@@ -46,7 +46,7 @@ namespace AsyncFixer.AsyncVoid
                 return;
             }
 
-            var diagnostic = Diagnostic.Create(Rule, node.ReturnType.GetLocation(), node.Identifier.ValueText);
+            var diagnostic = Diagnostic.Create(Rule, node.ReturnType.GetLocation());
             context.ReportDiagnostic(diagnostic);
         }
 
@@ -59,7 +59,7 @@ namespace AsyncFixer.AsyncVoid
                 return;
             }
 
-            var diagnostic = Diagnostic.Create(Rule, operation.Syntax.GetLocation(), "Lambda");
+            var diagnostic = Diagnostic.Create(Rule, operation.Syntax.GetLocation());
             context.ReportDiagnostic(diagnostic);
         }
 
