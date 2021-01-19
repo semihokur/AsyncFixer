@@ -45,7 +45,7 @@ namespace AsyncFixer.AsyncVoid
 
             var methodDeclaration = node.FirstAncestorOrSelf<MethodDeclarationSyntax>();
 
-            if (methodDeclaration.ReturnsVoid())
+            if (methodDeclaration != null && methodDeclaration.ReturnsVoid())
             {
                 var name = diagnostic.Id;
                 var hash = diagnostic.GetHashCode();

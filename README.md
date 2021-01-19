@@ -12,7 +12,7 @@ There are some async methods where there is no need to use `async/await` keyword
 
 ![asyncfixer-1.gif](https://raw.githubusercontent.com/semihokur/AsyncFixer/main/img/asyncfixer-1.gif)
 
-### AsyncFixer02: Long-running or blocking operations inside an *async* method
+### AsyncFixer02: Long-running or blocking operations inside an async method
 
 Developers use some potentially long-running or blocking operations inside async methods even though there are corresponding asynchronous versions of these methods in .NET or third-party libraries. Some examples for such operations: `Task.Wait()`, `Task.Result`, `StreamReader.ReadToEnd()`, `Thread.Sleep()`, etc.
 
@@ -20,17 +20,17 @@ AsyncFixer automatically replaces those operations with their corresponding asyn
 
 ![asyncfixer-2.gif](https://raw.githubusercontent.com/semihokur/AsyncFixer/main/img/asyncfixer-2.gif)
 
-### AsyncFixer03: Fire & forget *async void* methods
+### AsyncFixer03: Fire-and-forget *async-void* methods and delegates
 
-Some async methods are 'fire & forget', which return `void`. Unless a method is only called as an event handler, it must be awaitable. Otherwise, it is a code smell because it complicates control flow and makes error detection & correction difficult.
+Some async methods and delegates are fire-and-forget, which return `void`. Unless a method is only called as an event handler, it must be awaitable. Otherwise, it is a code smell because it complicates control flow and makes error detection/correction difficult. Unhandled exceptions in those *async-void* methods and delegates will crash the process as well.
 
 AsyncFixer automatically converts `void` to `Task`.
 
 ![asyncfixer-3.gif](https://raw.githubusercontent.com/semihokur/AsyncFixer/main/img/asyncfixer-3.gif) 
 
-### AsyncFixer04: Fire & forget async call inside a *using* block
+### AsyncFixer04: Fire-and-forget async call inside an *using* block
 
-Inside a `using` block, developers insert a fire & forget async call which uses a disposable object as a parameter or target object. It can cause potential exceptions or wrong results. For instance, developers create a `Stream` in the `using` statement, pass it to the asynchronous method, and then `Stream` will be implicitly disposed via a `using` block. When the asynchronous method comes around to writing to `Stream`, it is (very likely) already disposed and you will have an exception.
+Inside a `using` block, developers insert a fire-and-forget async call which uses a disposable object as a parameter or target object. It can cause potential exceptions or wrong results. For instance, developers create a `Stream` in the `using` statement, pass it to the asynchronous method, and then `Stream` will be implicitly disposed via a `using` block. When the asynchronous method comes around to writing to `Stream`, it is (very likely) already disposed and you will have an exception.
 
 ### AsyncFixer05: Downcasting from a nested task to an outer task.
 
