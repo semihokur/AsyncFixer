@@ -218,6 +218,20 @@ class Program
 
             var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
             VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task<int> foo(int i)
+    {
+        return Task.Run(()=>3);
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
         }
 
         [Fact]
