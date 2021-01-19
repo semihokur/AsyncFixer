@@ -70,7 +70,7 @@ namespace AsyncFixer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0}, a disposable object, is used in a fire &amp; forget async call in an using block, causing potential exception error or wrong result..
+        ///   Looks up a localized string similar to {0}, a disposable object, is used in a fire-and-forget async call in an using block, causing potential exception error or wrong result..
         /// </summary>
         internal static string AsyncCallInsideUsingBlockMessageFormat {
             get {
@@ -79,7 +79,7 @@ namespace AsyncFixer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Fire &amp; forget async call inside a using block.
+        ///   Looks up a localized string similar to Fire-and-forget async call inside a using block.
         /// </summary>
         internal static string AsyncCallInsideUsingBlockTitle {
             get {
@@ -106,7 +106,7 @@ namespace AsyncFixer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Avoid unsupported fire &amp; forget async void methods or delegates. Unhandled exceptions will crash the process..
+        ///   Looks up a localized string similar to Avoid unsupported fire-and-forget async-void methods or delegates. Unhandled exceptions will crash the process..
         /// </summary>
         internal static string AsyncVoidMessageFormat {
             get {
@@ -115,7 +115,7 @@ namespace AsyncFixer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Fire &amp; forget async void methods or delegates.
+        ///   Looks up a localized string similar to Fire-and-forget async-void methods or delegates.
         /// </summary>
         internal static string AsyncVoidTitle {
             get {
