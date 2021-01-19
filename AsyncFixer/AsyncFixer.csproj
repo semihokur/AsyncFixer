@@ -9,7 +9,7 @@
 
   <PropertyGroup>
     <PackageId>AsyncFixer</PackageId>
-    <PackageVersion>1.4.0</PackageVersion>
+    <PackageVersion>1.4.1</PackageVersion>
     <Authors>Semih Okur</Authors>
     <Title>AsyncFixer: Advanced async/await Diagnostics and CodeFixes for C#</Title>
     <Description>

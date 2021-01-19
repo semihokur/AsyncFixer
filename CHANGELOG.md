@@ -1,5 +1,10 @@
 # Release History
 
+## 1.4.1 (2021-01)
+- AsyncFixer01-UnnecessaryAsync: Take account of the lack of covariance in the Task class
+- AsyncFixer03-AsyncVoid: Add support for fire-and-forget delegates 
+- AsyncFixer04-AsyncCallInsideUsingBlock: Fix a potential NRE
+
 ## 1.4.0 (2021-01)
 - UnnecessaryAsync analyzer: Fix false warnings with `using` expression statements
 - UnnecessaryAsync analyzer: Support for expression-bodied members
