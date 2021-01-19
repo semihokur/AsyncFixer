@@ -58,6 +58,11 @@ namespace AsyncFixer
             return method.ReturnType.ToString() == "void";
         }
 
+        public static bool IsImplicitTypeCasting(this TypeInfo typeInfo)
+        {
+            return !SymbolEqualityComparer.Default.Equals(typeInfo.Type, typeInfo.ConvertedType);
+        }
+
         public static T FirstAncestorOrSelfUnderGivenNode<T>(this SyntaxNode node, SyntaxNode parent)
             where T : SyntaxNode
         {
