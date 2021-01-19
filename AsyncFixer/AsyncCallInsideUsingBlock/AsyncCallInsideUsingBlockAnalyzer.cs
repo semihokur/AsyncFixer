@@ -49,11 +49,14 @@ namespace AsyncFixer.AsyncCallInsideUsingBlock
             }
 
             var declarator = declaration.Variables.FirstOrDefault();
-            var identifier = declarator.Identifier;
+            var identifier = declarator?.Identifier;
 
-            var disposableObject = context.SemanticModel.GetDeclaredSymbol(declarator);
+            if (identifier == null)
+            {
+                return;
+            }
 
-            var locationsOfDisposableObjects = node.Statement.DescendantNodes().OfType<IdentifierNameSyntax>().Where(a => a.Identifier.ValueText.Equals(identifier.ValueText));
+            var locationsOfDisposableObjects = node.Statement.DescendantNodes().OfType<IdentifierNameSyntax>().Where(a => a.Identifier.ValueText.Equals(identifier.Value.ValueText));
             foreach (var location in locationsOfDisposableObjects)
             {
                 var invocation = location.FirstAncestorOrSelfUnderGivenNode<InvocationExpressionSyntax>(node);
@@ -112,7 +115,7 @@ namespace AsyncFixer.AsyncCallInsideUsingBlock
                     continue;
                 }
 
-                var diagnostic = Diagnostic.Create(Rule, location.GetLocation(), identifier.ValueText);
+                var diagnostic = Diagnostic.Create(Rule, location.GetLocation(), identifier.Value.ValueText);
                 context.ReportDiagnostic(diagnostic);
             }
         }
