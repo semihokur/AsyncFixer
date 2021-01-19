@@ -36,17 +36,26 @@ namespace AsyncFixer.AsyncVoid
             var diagnostic = context.Diagnostics.First();
             var diagnosticSpan = diagnostic.Location.SourceSpan;
 
-            var methodDeclaration =
-                root.FindToken(diagnosticSpan.Start).Parent.FirstAncestorOrSelf<MethodDeclarationSyntax>();
+            var node = root.FindNode(diagnosticSpan, getInnermostNodeForTie: true);
+            if (node is LambdaExpressionSyntax)
+            {
+                // For async-void lambda, we do not suggest code fixes.
+                return;
+            }
 
-            var name = diagnostic.Id;
-            var hash = diagnostic.GetHashCode();
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    title: Title,
-                    createChangedDocument: c => ConvertToTask(context.Document, methodDeclaration, c),
-                    equivalenceKey: Title),
-                diagnostic);
+            var methodDeclaration = node.FirstAncestorOrSelf<MethodDeclarationSyntax>();
+
+            if (methodDeclaration != null && methodDeclaration.ReturnsVoid())
+            {
+                var name = diagnostic.Id;
+                var hash = diagnostic.GetHashCode();
+                context.RegisterCodeFix(
+                    CodeAction.Create(
+                        title: Title,
+                        createChangedDocument: c => ConvertToTask(context.Document, methodDeclaration, c),
+                        equivalenceKey: Title),
+                    diagnostic);
+            }
         }
 
         private async Task<Document> ConvertToTask(Document document, MethodDeclarationSyntax methodDecl, CancellationToken cancellationToken)

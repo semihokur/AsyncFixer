@@ -63,6 +63,63 @@ class Program
             VerifyCSharpFix(test, fixtest);
         }
 
+        [Fact]
+        public void AsyncVoidAnonymousFunction()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    private static void foo()
+    {
+        bar(async i => await Task.FromResult(i));
+    }
+
+    private static void bar(Action<int> action)
+    {
+        action(3);
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.AsyncVoid };
+            VerifyCSharpDiagnostic(test, expected);
+
+            // No fix should be suggested.
+            VerifyCSharpFix(test, test);
+        }
+
+        [Fact]
+        public void AsyncVoidAnonymousFunctionWithIntermediateMethod()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    public static void Do()
+    {
+        Process(async input => await ProcessAsync());
+    }
+
+    private static void Process(Action<int> action)
+    {
+        action(12);
+    }
+
+    private static Task ProcessAsync()
+    {
+        return Task.CompletedTask;
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.AsyncVoid };
+            VerifyCSharpDiagnostic(test, expected);
+
+            // No fix should be suggested.
+            VerifyCSharpFix(test, test);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new AsyncVoidFixer();

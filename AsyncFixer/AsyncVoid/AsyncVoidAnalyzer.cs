@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace AsyncFixer.AsyncVoid
 {
@@ -32,6 +33,7 @@ namespace AsyncFixer.AsyncVoid
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
             context.RegisterSyntaxNodeAction(AnalyzeMethodDeclaration, SyntaxKind.MethodDeclaration);
+            context.RegisterOperationAction(AnalyzeAnonymousFunction, OperationKind.AnonymousFunction);
         }
 
         // It detects "async void methodA(){}" declarations.
@@ -44,7 +46,20 @@ namespace AsyncFixer.AsyncVoid
                 return;
             }
 
-            var diagnostic = Diagnostic.Create(Rule, node.ReturnType.GetLocation(), node.Identifier.ValueText);
+            var diagnostic = Diagnostic.Create(Rule, node.ReturnType.GetLocation());
+            context.ReportDiagnostic(diagnostic);
+        }
+
+        private void AnalyzeAnonymousFunction(OperationAnalysisContext context)
+        {
+            var operation = (IAnonymousFunctionOperation)context.Operation;
+            var symbol = operation.Symbol;
+            if (symbol == null || !symbol.IsAsync || !symbol.ReturnsVoid)
+            {
+                return;
+            }
+
+            var diagnostic = Diagnostic.Create(Rule, operation.Syntax.GetLocation());
             context.ReportDiagnostic(diagnostic);
         }
 

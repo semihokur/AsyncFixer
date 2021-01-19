@@ -121,10 +121,10 @@
     <value />
   </data>
   <data name="AsyncCallInsideUsingBlockMessageFormat" xml:space="preserve">
-    <value>{0}, a disposable object, is used in a fire &amp; forget async call in an using block, causing potential exception error or wrong result.</value>
+    <value>{0}, a disposable object, is used in a fire-and-forget async call in an using block, causing potential exception error or wrong result.</value>
   </data>
   <data name="AsyncCallInsideUsingBlockTitle" xml:space="preserve">
-    <value>Fire &amp; forget async call inside a using block</value>
+    <value>Fire-and-forget async call inside a using block</value>
   </data>
   <data name="AsyncVoidDescription" xml:space="preserve">
     <value />
@@ -134,11 +134,11 @@
     <value>Convert void to Task</value>
   </data>
   <data name="AsyncVoidMessageFormat" xml:space="preserve">
-    <value>{0} is a fire &amp; forget async void method. It should return non-void.</value>
+    <value>Avoid unsupported fire-and-forget async-void methods or delegates. Unhandled exceptions will crash the process.</value>
     <comment>The format-able message the diagnostic displays.</comment>
   </data>
   <data name="AsyncVoidTitle" xml:space="preserve">
-    <value>Fire &amp; forget async void methods</value>
+    <value>Fire-and-forget async-void methods or delegates</value>
     <comment>The title of the diagnostic.</comment>
   </data>
   <data name="BlockingCallInsideAsyncDescription" xml:space="preserve">
