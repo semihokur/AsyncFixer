@@ -253,8 +253,7 @@ class Program
         }
 
         // TODO: remove the awaits even though they do not use return statements.
-        [Fact]
-        // [Fact(Skip ="Remove awaits")]
+        [Fact(Skip = "Remove awaits")]
         public void UnnecessaryAsyncTest7()
         {
             var test = @"
