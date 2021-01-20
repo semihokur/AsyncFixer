@@ -253,7 +253,8 @@ class Program
         }
 
         // TODO: remove the awaits even though they do not use return statements.
-        [Fact(Skip ="Remove awaits")]
+        [Fact]
+        // [Fact(Skip ="Remove awaits")]
         public void UnnecessaryAsyncTest7()
         {
             var test = @"
@@ -268,7 +269,10 @@ class Program
         {
             await Task.Delay(2);
         }
-        await Task.Delay(1);
+        else
+        {
+            await Task.Delay(1);
+        }
     }
 }";
 
@@ -287,6 +291,7 @@ class Program
         {
             return Task.Delay(2);
         }
+
         return Task.Delay(1);
     }
 }";
@@ -321,6 +326,82 @@ class Program
     Task Test2Async(string str)
     {
         return Task.Delay(1);
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        [Fact]
+        public void AwaitExpressionsUnderLambda()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        await Task.Run(async () => await Task.FromResult(true));
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        return Task.Run(async () => await Task.FromResult(true));
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        [Fact]
+        public void AwaitExpressionsUnderLambdaWithIntermediateMethod()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        await bar(async () => await Task.FromResult(true)).ConfigureAwait(false);
+    }
+
+    async Task bar(Func<Task<bool>> action)
+    {
+        await action();
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        return bar(async () => await Task.FromResult(true));
+    }
+
+    Task bar(Func<Task<bool>> action)
+    {
+        return action();
     }
 }";
 
@@ -430,6 +511,54 @@ class Program
 }";
 
             VerifyCSharpFix(test, fixtest);
+        }
+
+        [Fact]
+        public void ExpressionBodyWithAsyncLambda()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    public static async Task<bool> foo() => await bar(async a => await Task.FromResult(a));
+
+    public static async Task<bool> bar(Func<bool, Task<bool>> action) => await Task.FromResult(true).ConfigureAwait(false);
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected, expected); // Expect two diagnostics. One for foo and one for bar.
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    public static Task<bool> foo() => bar(async a => await Task.FromResult(a));
+
+    public static Task<bool> bar(Func<bool, Task<bool>> action) => Task.FromResult(true);
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        [Fact]
+        public void NoWarn_ExpressionBodyWithMultipleAwaitExprs()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    public async Task<bool> OuterAsync() => await InnerAsync(await Task.FromResult(true));
+
+    public Task<bool> InnerAsync(bool parameter) => Task.FromResult(parameter);
+}";
+
+            VerifyCSharpDiagnostic(test);
         }
 
         [Fact]

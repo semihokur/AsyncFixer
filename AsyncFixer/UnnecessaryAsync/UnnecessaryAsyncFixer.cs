@@ -34,33 +34,87 @@ namespace AsyncFixer.UnnecessaryAsync
         public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
         {
             var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+            var semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+
+            if (root == null || semanticModel == null)
+            {
+                return;
+            }
 
             var diagnostic = context.Diagnostics.First();
-            var diagnosticSpan = diagnostic.Location.SourceSpan;
 
-            var methodDeclaration =
-                root.FindToken(diagnosticSpan.Start).Parent.FirstAncestorOrSelf<MethodDeclarationSyntax>();
+            var methodDeclaration = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<MethodDeclarationSyntax>();
 
             context.RegisterCodeFix(
                 CodeAction.Create(
                     title: Title,
-                    createChangedDocument: c => RemoveAsyncAwait(context.Document, methodDeclaration, c),
+                    createChangedDocument: c => RemoveAsyncAwait(context.Document, semanticModel, methodDeclaration, c),
                     equivalenceKey: Title),
                 diagnostic);
         }
 
-        private async Task<Document> RemoveAsyncAwait(Document document, MethodDeclarationSyntax methodDecl, CancellationToken cancellationToken)
+        private async Task<Document> RemoveAsyncAwait(Document document, SemanticModel semanticModel, MethodDeclarationSyntax methodDecl, CancellationToken cancellationToken)
         {
-            MethodDeclarationSyntax newMethodDecl;
+            var pairs = new List<SyntaxReplacementPair>();
 
-            // (1) Remove async keyword
-            var asyncModifier = methodDecl.Modifiers.First(a => a.Kind() == SyntaxKind.AsyncKeyword);
+            if (methodDecl.ExpressionBody != null)
+            {
+                // Expression-bodied methods
+
+                // Find the first descendant await expression excluding the inner ones.
+                var awaitExpr = methodDecl.DescendantNodes().OfType<AwaitExpressionSyntax>().FirstOrDefault();
+                var newExpr = RemoveAwaitFromExpression(awaitExpr);
+                pairs.Add(new SyntaxReplacementPair(awaitExpr, newExpr));
+            }
+            else
+            {
+                // For regular methods.
+
+                var controlFlow = semanticModel.AnalyzeControlFlow(methodDecl.Body);
+                var returnStatements = controlFlow?.ReturnStatements ?? ImmutableArray<SyntaxNode>.Empty;
+                if (returnStatements.Any())
+                {
+                    // For methods with return statements
+                    foreach (var temp in returnStatements)
+                    {
+                        var awaitExpr = (temp as ReturnStatementSyntax)?.Expression;
+                        if (awaitExpr?.Kind() == SyntaxKind.AwaitExpression)
+                        {
+                            var newExpr = RemoveAwaitFromExpression((AwaitExpressionSyntax)awaitExpr);
+                            pairs.Add(new SyntaxReplacementPair(awaitExpr, newExpr));
+                        }
+                    }
+                }
+                else
+                {
+                    // For methods that do not have return statements. They just have await statements
+
+                    // if awaitExpression is the last statement's expression
+                    var lastStatement = methodDecl.Body.Statements.LastOrDefault() as ExpressionStatementSyntax;
+                    if (lastStatement?.Expression?.Kind() == SyntaxKind.AwaitExpression)
+                    {
+                        var newExpr = RemoveAwaitFromExpression((AwaitExpressionSyntax)lastStatement.Expression);
+
+                        var newStatement =
+                            SyntaxFactory.ReturnStatement(newExpr)
+                                .WithAdditionalAnnotations(Formatter.Annotation)
+                                .WithLeadingTrivia(lastStatement.GetLeadingTrivia())
+                                .WithTrailingTrivia(lastStatement.GetTrailingTrivia());
+                        pairs.Add(new SyntaxReplacementPair(lastStatement, newStatement));
+                    }
+                }
+            }
+
+            MethodDeclarationSyntax newMethodDecl = methodDecl.ReplaceAll(pairs);
+
+            // Remove async keyword
+            var asyncModifier = newMethodDecl.Modifiers.First(a => a.Kind() == SyntaxKind.AsyncKeyword);
             newMethodDecl = asyncModifier.HasLeadingTrivia
-                ? methodDecl.WithModifiers(methodDecl.Modifiers.Remove(asyncModifier))
+                ? newMethodDecl.WithModifiers(newMethodDecl.Modifiers.Remove(asyncModifier))
                     .WithLeadingTrivia(asyncModifier.LeadingTrivia)
-                : methodDecl.WithModifiers(methodDecl.Modifiers.Remove(asyncModifier));
+                : newMethodDecl.WithModifiers(newMethodDecl.Modifiers.Remove(asyncModifier));
 
-            // (2) If void, convert it to Task
+            // If void, convert it to Task
             if (newMethodDecl.ReturnsVoid())
             {
                 var newType =
@@ -70,57 +124,30 @@ namespace AsyncFixer.UnnecessaryAsync
                 newMethodDecl = newMethodDecl.WithReturnType(newType);
             }
 
-            var methodBody = (CSharpSyntaxNode)newMethodDecl.Body ?? newMethodDecl.ExpressionBody;
-
-            // (3) For all await expressions, remove await and insert return if there is none. 
-            var awaitExprs = methodBody.DescendantNodes().OfType<AwaitExpressionSyntax>();
-
-            var pairs = new List<SyntaxReplacementPair>();
-
-            foreach (var awaitExpr in awaitExprs)
-            {
-                SyntaxNode oldNode;
-                SyntaxNode newNode;
-                var newAwaitExpr = awaitExpr;
-
-                // If there is some ConfigureAwait(false), remove it 
-                var invoc = awaitExpr.Expression as InvocationExpressionSyntax;
-                if (invoc != null)
-                {
-                    var expr = invoc.Expression as MemberAccessExpressionSyntax;
-
-                    // TODO: Check whether it is ConfigureAwait(false) or ConfigureAwait(true);
-                    if (expr != null && expr.Name.Identifier.ValueText == "ConfigureAwait")
-                    {
-                        newAwaitExpr = awaitExpr.ReplaceNode(awaitExpr.Expression, expr.Expression);
-                    }
-                }
-
-                if (awaitExpr.Parent.Kind() == SyntaxKind.ReturnStatement ||
-                    awaitExpr.Parent.Kind() == SyntaxKind.ArrowExpressionClause)
-                {
-                    oldNode = awaitExpr;
-                    newNode = newAwaitExpr.Expression.WithAdditionalAnnotations(Simplifier.Annotation);
-                }
-                else
-                {
-                    oldNode = awaitExpr.Parent;
-                    newNode =
-                        SyntaxFactory.ReturnStatement(newAwaitExpr.Expression)
-                            .WithAdditionalAnnotations(Formatter.Annotation)
-                            .WithLeadingTrivia(oldNode.GetLeadingTrivia())
-                            .WithTrailingTrivia(oldNode.GetTrailingTrivia());
-                }
-
-                pairs.Add(new SyntaxReplacementPair(oldNode, newNode));
-            }
-
-            newMethodDecl = newMethodDecl.ReplaceAll(pairs);
-
-            // (4) Replace the old method with the new one.
+            // Replace the old method with the new one.
             var root = await document.GetSyntaxRootAsync().ConfigureAwait(false);
             var newRoot = root.ReplaceNode(methodDecl, newMethodDecl);
             return document.WithSyntaxRoot(newRoot);
+        }
+
+        private ExpressionSyntax RemoveAwaitFromExpression(AwaitExpressionSyntax awaitExpr)
+        {
+            var newExpr = awaitExpr;
+
+            // If there is some ConfigureAwait(false), remove it 
+            var invoc = awaitExpr.Expression as InvocationExpressionSyntax;
+            if (invoc != null)
+            {
+                var expr = invoc.Expression as MemberAccessExpressionSyntax;
+
+                // TODO: Check whether it is ConfigureAwait(false) or ConfigureAwait(true);
+                if (expr != null && expr.Name.Identifier.ValueText == "ConfigureAwait")
+                {
+                    newExpr = awaitExpr.ReplaceNode(awaitExpr.Expression, expr.Expression);
+                }
+            }
+
+            return newExpr.Expression.WithAdditionalAnnotations(Simplifier.Annotation);
         }
     }
 }
