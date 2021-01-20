@@ -65,14 +65,18 @@ namespace AsyncFixer.BlockingCallInsideAsync
 
         private void AnalyzeInvocation(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, string enclosingMethodName)
         {
-
             var invokeMethod = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-            if (invokeMethod == null || invokeMethod.Name == "Invoke")
+            if (invokeMethod == null || invokeMethod.Name == "Invoke" || invokeMethod.Name == "Dispose")
             {
+                // Do not suggest InvokeAsync which is common with old asynchrony patterns.
+                // Do not also suggest DisposeAsync which is rarely needed as most of DisposeAsync implementations are not truly asynchronous.
                 return;
             }
 
-            var replacement = DetectSynchronousUsages(invocation.GetLocation(), invokeMethod.OriginalDefinition, context.SemanticModel);
+            var receiverExpr = (invocation.Expression as MemberAccessExpressionSyntax)?.Expression;
+            var receiverType = receiverExpr != null ? context.SemanticModel.GetTypeInfo(receiverExpr).Type : null;
+
+            var replacement = DetectSynchronousUsages(invocation.GetLocation(), invokeMethod.OriginalDefinition, receiverType, context.SemanticModel);
             if (replacement == null)
             {
                 return;
@@ -123,12 +127,15 @@ namespace AsyncFixer.BlockingCallInsideAsync
             context.ReportDiagnostic(diagnostic);
         }
 
-        private static string DetectSynchronousUsages(Location location, IMethodSymbol methodCallSymbol, SemanticModel semanticModel)
+        private static string DetectSynchronousUsages(Location location, IMethodSymbol methodCallSymbol, ITypeSymbol receiverTypeCandidate, SemanticModel semanticModel)
         {
             if (methodCallSymbol.ContainingType == null)
             {
                 return null;
             }
+
+            // If we do not succeed retrieving the exact type of the receiver, proceed with the containing type of the method symbol.
+            var receiverType = receiverTypeCandidate ?? methodCallSymbol.ContainingType;
 
             if (!methodCallSymbol.ContainingAssembly.ToDisplayString().StartsWith("System.", StringComparison.OrdinalIgnoreCase))
             {
@@ -140,7 +147,7 @@ namespace AsyncFixer.BlockingCallInsideAsync
 
             var typeName = methodCallSymbol.ContainingType.Name;
 
-            if (typeName == "MemoryStream")
+            if (receiverType.Name == "MemoryStream")
             {
                 // Do not replace the synchronous ones under MemoryStream.
                 return null;
@@ -165,10 +172,12 @@ namespace AsyncFixer.BlockingCallInsideAsync
                 return "Task.WhenAny";
             }
 
-            var list = semanticModel.LookupSymbols(location.SourceSpan.Start, methodCallSymbol.ContainingType,
+            var list = semanticModel.LookupSymbols(location.SourceSpan.Start, receiverType,
                 includeReducedExtensionMethods: true, name: methodName + "Async");
+
             return
                 list.OfType<IMethodSymbol>()
+                    .Where(a => !a.IsVirtual && !a.IsAbstract)
                     .Where(m => IsSignatureCompatible(methodCallSymbol, m))
                     .Select(m => m.Name)
                     .FirstOrDefault();

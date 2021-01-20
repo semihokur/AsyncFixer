@@ -283,10 +283,12 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        /// <summary>
+        /// No warning for fast MemoryStream operations
+        /// </summary>
         [Fact]
-        public void NoWarn_BlockingCallInsideAsyncTest11()
-        {
-            // fooAsync is the itself
+        public void NoWarn_MemoryStream()
+        { 
             var test = @"
 using System;
 using System.IO;
@@ -299,6 +301,33 @@ class Program
         await Task.Delay(100);
         var ms = new MemoryStream();
         ms.Write(null, 0, 0);
+        ms.Dispose();
+        return null;
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning for virtual DisposeAsync existence
+        /// </summary>
+        [Fact]
+        public void NoWarn_Dispose()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task<object> fooAsync(int i)
+    {
+        await Task.Delay(100);
+        var ms = new MemoryStream();
+        ms.Write(null, 0, 0);
+        ms.Dispose();
         return null;
     }
 }";
