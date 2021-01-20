@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace AsyncFixer.UnnecessaryAsync
 {
@@ -59,6 +60,9 @@ namespace AsyncFixer.UnnecessaryAsync
                 return;
             }
 
+            // Retrieve all await expressions excluding the ones under lambda functions.
+            var awaitExpressions = node.DescendantNodes().OfType<AwaitExpressionSyntax>().Where(a => a.FirstAncestorOrSelfUnderGivenNode<LambdaExpressionSyntax>(node) == null).ToList();
+
             if (node.Body == null && 
                 node.ExpressionBody?.Expression.Kind() == SyntaxKind.AwaitExpression)
             {
@@ -72,6 +76,13 @@ namespace AsyncFixer.UnnecessaryAsync
                     // That's why we cannot remove async/await keywords.
                     return;
                 }
+
+                if (awaitExpressions.Count() > 1)
+                {
+                    // If there is more than await expressions, we cannot safely remove async/await keywords
+                    return;
+                }
+
                 context.ReportDiagnostic(diagnostic);
                 return;
             }
@@ -83,16 +94,7 @@ namespace AsyncFixer.UnnecessaryAsync
             }
 
             var controlFlow = context.SemanticModel.AnalyzeControlFlow(node.Body);
-            if (controlFlow == null)
-            {
-                return;
-            }
-
-            var returnStatements = controlFlow.ReturnStatements;
-            if (returnStatements == null)
-            {
-                return;
-            }
+            var returnStatements = controlFlow?.ReturnStatements ?? ImmutableArray<SyntaxNode>.Empty;
 
             var numAwait = 0;
             if (returnStatements.Any())
@@ -100,13 +102,7 @@ namespace AsyncFixer.UnnecessaryAsync
                 foreach (var temp in returnStatements)
                 {
                     var returnStatement = temp as ReturnStatementSyntax;
-                    if (returnStatement == null)
-                    {
-                        return;
-                    }
-
-                    if (returnStatement.Expression == null ||
-                        returnStatement.Expression.Kind() != SyntaxKind.AwaitExpression)
+                    if (returnStatement?.Expression?.Kind() != SyntaxKind.AwaitExpression)
                     {
                         return;
                     }
@@ -130,27 +126,18 @@ namespace AsyncFixer.UnnecessaryAsync
             {
                 // if awaitExpression is the last statement's expression
                 var lastStatement = node.Body.Statements.LastOrDefault();
-                if (lastStatement == null)
+                if ((lastStatement as ExpressionStatementSyntax)?.Expression?.Kind() != SyntaxKind.AwaitExpression)
                 {
                     return;
                 }
 
-                var exprStmt = lastStatement as ExpressionStatementSyntax;
-                if (exprStmt == null || exprStmt.Expression == null ||
-                    exprStmt.Expression.Kind() != SyntaxKind.AwaitExpression)
-                {
-                    return;
-                }
-
-                if (HasUsingOrTryParent(exprStmt, node))
+                if (HasUsingOrTryParent(lastStatement, node))
                 {
                     return;
                 }
 
                 numAwait++;
             }
-
-            var awaitExpressions = node.Body.DescendantNodes().OfType<AwaitExpressionSyntax>();
 
             if (numAwait < awaitExpressions.Count())
             {
