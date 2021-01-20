@@ -30,7 +30,22 @@ AsyncFixer automatically converts `void` to `Task`.
 
 ### AsyncFixer04: Fire-and-forget async call inside an *using* block
 
-Inside a `using` block, developers insert a fire-and-forget async call which uses a disposable object as a parameter or target object. It can cause potential exceptions or wrong results. For instance, developers create a `Stream` in the `using` statement, pass it to the asynchronous method, and then `Stream` will be implicitly disposed via a `using` block. When the asynchronous method comes around to writing to `Stream`, it is (very likely) already disposed and you will have an exception.
+Inside a `using` block, developers insert a fire-and-forget async call which uses a disposable object as a parameter or target object. It can cause potential exceptions or wrong results. Here is an example:
+
+```
+static void foo()
+{
+    var newStream = new FileStream("file.txt", FileMode.Create);
+    using (var stream = new FileStream("newfile.txt", FileMode.Open))
+    {
+        newStream.CopyToAsync(stream);
+    }
+}
+```
+We copy the contents of the file to another file above. If the file size is big enough to make `CopyToAsync` take non-trivial duration, we will have `ObjectDisposedException` because `Stream` will be implicitly disposed due to the `using` block before `CopyToAsync` is finished. To fix the issue, we need to await  asynchronous operations involving disposable objects inside `using` blocks:
+```
+    await newStream.CopyToAsync(stream);
+```
 
 ### AsyncFixer05: Downcasting from a nested task to an outer task.
 
