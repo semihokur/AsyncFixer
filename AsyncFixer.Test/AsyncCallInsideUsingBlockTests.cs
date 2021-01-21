@@ -146,6 +146,51 @@ public static class MyExtensions
         }
 
         [Fact]
+        public void DisposableObjectAsArgument()
+        {
+            var test = @"
+using System;
+using System.IO
+
+class Program
+{
+    static async void foo()
+    {
+        var newStream = new FileStream("""", FileMode.Create);
+        using (var stream = new FileStream(""existing"", FileMode.Open))
+        {
+            await stream.CopyToAsync(newStream);
+            newStream.CopyToAsync(stream); 
+        }
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        [Fact]
+        public void NoWarn_CaseSensitivity()
+        {
+            var test = @"
+using System;
+using System.IO
+
+class Program
+{
+    static async void foo()
+    {
+        var newStream = new FileStream("""", FileMode.Create);
+        using (var stream = new FileStream(""existing"", FileMode.Open))
+        {
+            await stream.CopyToAsync(newStream);
+            stream.CopyToAsync(Stream.Null); 
+        }
+    }
+}";
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact]
         public void NoWarn_UsingStatementNoWarning()
         {
             var test = @"
@@ -158,6 +203,28 @@ class Program
     {
         using var stream = new FileStream("", FileMode.Open);
         stream.CopyToAsync(stream);
+    }
+}";
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact(Skip = "TODO for later as this requires dataflow analysis")]
+        public void NoWarn_AwaitedLater()
+        {
+            var test = @"
+using System;
+using System.IO
+
+class Program
+{
+    static async void foo()
+    {
+        var newStream = new FileStream("""", FileMode.Create);
+        using (var stream = new FileStream(""existing"", FileMode.Open))
+        {
+            var task = stream.CopyToAsync(newStream);
+            await task;
+        }
     }
 }";
             VerifyCSharpDiagnostic(test);
