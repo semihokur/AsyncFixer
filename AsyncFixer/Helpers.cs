@@ -22,7 +22,7 @@ namespace AsyncFixer
         public static bool IsTask(this ITypeSymbol type)
         {
             return type.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks" &&
-                type.Name == "Task";
+                (type.Name == "Task" || type.Name == "ValueTask");
         }
 
         public static bool ReturnTask(this IMethodSymbol symbol)
