@@ -1,14 +1,19 @@
 # Release History
 
+## 1.5.0 (2021-01)
+- 01.UnnecessaryAsync: Fix false-negatives to cover more cases
+- 02.BlockingCallInsideAsync: Stop suggesting async calls for virtual calls and Dispose methods
+- Add support for ValueTask
+
 ## 1.4.1 (2021-01)
-- AsyncFixer01-UnnecessaryAsync: Take account of the lack of covariance in the Task class
-- AsyncFixer03-AsyncVoid: Add support for fire-and-forget delegates 
-- AsyncFixer04-AsyncCallInsideUsingBlock: Fix a potential NRE
+- 01.UnnecessaryAsync: Take account of the lack of covariance in the Task class
+- 03.AsyncVoid: Add support for fire-and-forget delegates 
+- 04.AsyncCallInsideUsingBlock: Fix a potential NRE
 
 ## 1.4.0 (2021-01)
-- UnnecessaryAsync analyzer: Fix false warnings with `using` expression statements
-- UnnecessaryAsync analyzer: Support for expression-bodied members
-- BlockingCallInsideAsync analyzer: Stop suggesting async calls from non-system assemblies
+- 01.UnnecessaryAsync: Fix false warnings with `using` expression statements
+- 01.UnnecessaryAsync: Support for expression-bodied members
+- 02.BlockingCallInsideAsync: Stop suggesting async calls from non-system assemblies
 
 ## 1.3.0 (2020-05)
 - Updated Roslyn dependencies to v3.3.1.
