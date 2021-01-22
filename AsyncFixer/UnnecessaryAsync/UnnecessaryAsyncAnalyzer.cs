@@ -6,6 +6,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
+using System.Collections.Generic;
+using System;
 
 namespace AsyncFixer.UnnecessaryAsync
 {
@@ -63,7 +65,7 @@ namespace AsyncFixer.UnnecessaryAsync
             // Retrieve all await expressions excluding the ones under lambda functions.
             var awaitExpressions = node.DescendantNodes().OfType<AwaitExpressionSyntax>().Where(a => a.FirstAncestorOrSelfUnderGivenNode<LambdaExpressionSyntax>(node) == null).ToList();
 
-            if (node.Body == null && 
+            if (node.Body == null &&
                 node.ExpressionBody?.Expression.Kind() == SyntaxKind.AwaitExpression)
             {
                 // Expression-bodied members 
@@ -96,6 +98,13 @@ namespace AsyncFixer.UnnecessaryAsync
             var controlFlow = context.SemanticModel.AnalyzeControlFlow(node.Body);
             var returnStatements = controlFlow?.ReturnStatements ?? ImmutableArray<SyntaxNode>.Empty;
 
+            // Retrieve the disposable object identifiers from the using statements. 
+            // For instance, for the following statement, we'd like to return 'source'.
+            //      using FileStream source = File.Open("data", FileMode.Open);
+            var disposableObjectNames = node.Body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>()
+                .Where(a => a.UsingKeyword.Kind() != SyntaxKind.None)
+                .SelectMany(a => a.DescendantNodes().OfType<VariableDeclaratorSyntax>().Select(b => b.Identifier.ValueText)).ToList();
+
             var numAwait = 0;
             if (returnStatements.Any())
             {
@@ -107,7 +116,7 @@ namespace AsyncFixer.UnnecessaryAsync
                         return;
                     }
 
-                    if (HasUsingOrTryParent(returnStatement, node))
+                    if (!IsSafeToRemoveAsyncAwait(returnStatement))
                     {
                         return;
                     }
@@ -125,13 +134,18 @@ namespace AsyncFixer.UnnecessaryAsync
             else
             {
                 // if awaitExpression is the last statement's expression
+                // using (var stream = new MemoryStream())
+                // {
+                //    await Task.FromResult(3); ==> this is NOT the last statement because of the using block.
+                // }
+
                 var lastStatement = node.Body.Statements.LastOrDefault();
                 if ((lastStatement as ExpressionStatementSyntax)?.Expression?.Kind() != SyntaxKind.AwaitExpression)
                 {
                     return;
                 }
 
-                if (HasUsingOrTryParent(lastStatement, node))
+                if (!IsSafeToRemoveAsyncAwait(lastStatement))
                 {
                     return;
                 }
@@ -144,26 +158,83 @@ namespace AsyncFixer.UnnecessaryAsync
                 return;
             }
 
-            // Make sure that we do not give a warning about the await statement involving a disposable object.
+            context.ReportDiagnostic(diagnostic);
 
-            // Retrieve the disposable object identifiers from the using statements. 
-            // For instance, for the following statement, we'd like to return 'source'.
-            //      using FileStream source = File.Open("data", FileMode.Open);
-            var disposableObjectNames = node.Body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>()
-                .Where(a => a.UsingKeyword.Kind() != SyntaxKind.None)
-                .SelectMany(a => a.DescendantNodes().OfType<VariableDeclaratorSyntax>().Select(b => b.Identifier.ValueText));
-            if (disposableObjectNames.Any())
+            bool IsSafeToRemoveAsyncAwait(StatementSyntax statement)
             {
-                // There are disposable objects.
-                // Let's check whether at least one await expression uses one of those disposable objects.
-                if (awaitExpressions.SelectMany(a => a.DescendantNodes().OfType<IdentifierNameSyntax>())
-                    .Any(a => disposableObjectNames.Contains(a.Identifier.ValueText)))
+                if (HasUsingOrTryParent(statement, node))
                 {
-                    return;
+                    // If it is under 'using' or 'try' block, it is not safe to remove async/await.
+                    return false;
                 }
+
+                // Make sure that we do not give a warning about the await statement involving an object which is created by an using statement.
+                // We use dataflow analysis to accurately detect a case like below:
+                //  async Task foo()
+                //  {
+                //      using var stream = new MemoryStream();
+                //      int streamOperation()
+                //      {
+                //          return stream.Read(null);
+                //      }
+                //      
+                //      var t = Task.Run(() => streamOperation())
+                //      await t;
+                //  }
+                // In the example above, we need to find out whether 'stream' is accessed in the last statement.
+
+                var names = GetAccessedVariableNamesWithPointsToAnalysis(context.SemanticModel, node, statement).ToList();
+                
+                if (names.Any(a => disposableObjectNames.Contains(a)))
+                {
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Return the names of all variables that are read-accessed in the given statement.
+        /// </summary>
+        /// <remarks>
+        /// The method iteratively goes through the definitions to find implicitly-accessed variables. 
+        /// </remarks>
+        private IEnumerable<string> GetAccessedVariableNamesWithPointsToAnalysis(SemanticModel semanticModel, SyntaxNode root, SyntaxNode node, int depth = 0)
+        {
+            if (depth == 5 || node == null || root == null)
+            {
+                // Put a limit for the call stack frame
+                yield break;
             }
 
-            context.ReportDiagnostic(diagnostic);
+            var dataFlowResult = semanticModel.AnalyzeDataFlow(node);
+            if (dataFlowResult?.Succeeded == true)
+            {
+                foreach (ISymbol symbol in dataFlowResult.ReadInside)
+                {
+                    yield return symbol.Name;
+
+                    if (symbol.DeclaringSyntaxReferences == null)
+                    {
+                        continue;
+                    }
+                    
+                    foreach (var syntaxRef in symbol.DeclaringSyntaxReferences)
+                    {
+                        var expressions = root.FindNode(syntaxRef.Span, getInnermostNodeForTie: true).DescendantNodes((n) => !(n is ExpressionSyntax)).OfType<ExpressionSyntax>();
+
+                        foreach (var expr in expressions)
+                        {
+                            var names = GetAccessedVariableNamesWithPointsToAnalysis(semanticModel, root, expr, depth + 1);
+                            foreach (var name in names)
+                            {
+                                yield return name;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
