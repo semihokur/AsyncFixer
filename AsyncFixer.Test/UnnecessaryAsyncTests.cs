@@ -663,6 +663,56 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        [Fact]
+        public void UsingStatementWithDataflow2()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        using var stream = new MemoryStream();
+        int streamOperation()
+        {
+            var stream2 = new MemoryStream();
+            return stream2.Read(null);
+        }
+        
+        stream.Read(null);
+        var t = Task.Run(() => streamOperation());
+        await t;
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        using var stream = new MemoryStream();
+        int streamOperation()
+        {
+            var stream2 = new MemoryStream();
+            return stream2.Read(null);
+        }
+        
+        stream.Read(null);
+        var t = Task.Run(() => streamOperation());
+        return t;
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
         [Fact(Skip = "TODO: fix the dataflow analysis to analyze all locations of the symbol, not only the definitions")]
         public void NoWarn_UsingStatementWithDataflowComplicated()
         {

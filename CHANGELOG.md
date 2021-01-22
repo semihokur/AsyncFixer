@@ -1,5 +1,8 @@
 # Release History
 
+## 1.5.1 (2021-01)
+- 01.UnnecessaryAsync: Implemented a dataflow analysis for disposable objects to fix false-negatives and false-positives
+
 ## 1.5.0 (2021-01)
 - 01.UnnecessaryAsync: Fix false-negatives to cover more cases
 - 02.BlockingCallInsideAsync: Stop suggesting async calls for virtual calls and Dispose methods
