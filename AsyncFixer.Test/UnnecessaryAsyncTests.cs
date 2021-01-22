@@ -575,6 +575,120 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        [Fact]
+        public void NoWarn_UsingStatement()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        using var stream = FileStream.Null;
+        var stream2 = FileStream.Null;
+        await Task.Run(() => stream2.CopyToAsync(stream));
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact]
+        public void NoWarn_UsingStatement2()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        using var stream = FileStream.Null;
+        await stream.ReadAsync(null);
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact]
+        public void NoWarn_UsingStatementWithDataflow()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        using var stream = new MemoryStream();
+        int streamOperation()
+        {
+            return stream.Read(null);
+        }
+
+        await Task.Run(() => streamOperation());
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact]
+        public void NoWarn_UsingStatementWithDataflow2()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        using var stream = new MemoryStream();
+        int streamOperation()
+        {
+            return stream.Read(null);
+        }
+
+        var t = Task.Run(() => streamOperation());
+        await t;
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact(Skip = "TODO: fix the dataflow analysis to analyze all locations of the symbol, not only the definitions")]
+        public void NoWarn_UsingStatementWithDataflowComplicated()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        using var stream = new MemoryStream();
+        int streamOperation()
+        {
+            return stream.Read(null);
+        }
+
+        Task t = null;
+        t = Task.Run(() => streamOperation());
+        await t;
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new UnnecessaryAsyncFixer();

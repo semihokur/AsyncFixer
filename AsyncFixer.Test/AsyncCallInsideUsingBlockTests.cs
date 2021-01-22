@@ -183,7 +183,7 @@ class Program
         using (var stream = new FileStream(""existing"", FileMode.Open))
         {
             await stream.CopyToAsync(newStream);
-            stream.CopyToAsync(Stream.Null); 
+            newStream.CopyToAsync(Stream.Null); 
         }
     }
 }";
