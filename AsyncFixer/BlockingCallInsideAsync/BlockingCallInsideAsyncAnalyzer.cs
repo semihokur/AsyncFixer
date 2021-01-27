@@ -45,7 +45,8 @@ namespace AsyncFixer.BlockingCallInsideAsync
                 return;
             }
 
-            foreach (var node in method.DescendantNodes())
+            // Do not travel nodes under QueryExpression nodes
+            foreach (var node in method.DescendantNodes(n=> !(n is QueryExpressionSyntax)))
             {
                 var kind = node.Kind();
                 if (kind == SyntaxKind.SimpleMemberAccessExpression)

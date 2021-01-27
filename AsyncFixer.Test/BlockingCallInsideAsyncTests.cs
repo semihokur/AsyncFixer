@@ -283,6 +283,34 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        [Fact]
+        public void NoWarn_InsideQueries()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
+
+class Program
+{
+    async Task<object> fooAsync(int i)
+    {
+        await Task.Delay(100);
+        Task<int> t = null;
+        var list = new List<string>();
+        var result = from str in list
+                        select new
+                        {
+                            a = t.Result
+                        };
+        return null;
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
         /// <summary>
         /// No warning for fast MemoryStream operations
         /// </summary>
