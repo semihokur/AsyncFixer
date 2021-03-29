@@ -739,6 +739,168 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        [Fact]
+        public void ValueTaskSupport()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async ValueTask<int> foo(int x)
+    {
+        if (x == 0)
+            return x;
+        await Task.Delay(1);
+        return x;
+    }
+
+    async ValueTask<int> bar(int x)
+    {
+        if (x == 0)
+            return x;
+        await Task.Delay(1);
+        return x;
+    }
+
+    async ValueTask<int> boo(bool c) {
+        if (c)
+        {
+            return await foo(1).ConfigureAwait(true);
+        }
+        
+        return await bar(2);
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fix = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async ValueTask<int> foo(int x)
+    {
+        if (x == 0)
+            return x;
+        await Task.Delay(1);
+        return x;
+    }
+
+    async ValueTask<int> bar(int x)
+    {
+        if (x == 0)
+            return x;
+        await Task.Delay(1);
+        return x;
+    }
+
+    ValueTask<int> boo(bool c) {
+        if (c)
+        {
+            return foo(1);
+        }
+        
+        return bar(2);
+    }
+}";
+            VerifyCSharpFix(test, fix);
+        }
+
+        [Fact]
+        public void DontCastValueTaskToTask()
+        {
+            // No diagnostics expected to show up
+            // We can't remove async to return ValueTask if the method returns a Task
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async ValueTask<int> foo(int x)
+    {
+        if (x == 0)
+            return x;
+        await Task.Delay(1);
+        return x;
+    }
+
+    async Task<int> boo() {
+        return await foo(1);
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+
+        [Fact]
+        public void DontCastValueTaskToTaskExpressionBodiedMember()
+        {
+            //No diagnostics expected to show up
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async ValueTask<int> foo(int x)
+    {
+        if (x == 0)
+            return x;
+        await Task.Delay(1);
+        return x;
+    }
+
+    async Task<int> boo() => await foo(1);
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact]
+        public void MixOfValueTaskAndTaskIsNotFixable()
+        {
+            //No diagnostics expected to show up
+            // We can't remove async to return ValueTask if the method returns a Task
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async ValueTask<int> foo(int x)
+    {
+        if (x == 0)
+            return x;
+        await Task.Delay(1);
+        return x;
+    }
+
+    async Task<int> bar(int x)
+    {
+        if (x == 0)
+            return x;
+        await Task.Delay(1);
+        return x;
+    }
+
+    async Task<int> boo(bool c) {
+        if (c)
+        {
+            return await foo(1);
+        }
+        
+        return await bar(2);
+    }
+}";
+            VerifyCSharpDiagnostic(test);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new UnnecessaryAsyncFixer();
