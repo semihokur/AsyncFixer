@@ -132,21 +132,10 @@ namespace AsyncFixer.UnnecessaryAsync
 
         private ExpressionSyntax RemoveAwaitFromExpression(AwaitExpressionSyntax awaitExpr)
         {
-            var newExpr = awaitExpr;
+            var trimmedExpr = Helpers.RemoveConfigureAwait(awaitExpr.Expression);
 
-            // If there is some ConfigureAwait(false), remove it 
-            var invoc = awaitExpr.Expression as InvocationExpressionSyntax;
-            if (invoc != null)
-            {
-                var expr = invoc.Expression as MemberAccessExpressionSyntax;
-
-                // TODO: Check whether it is ConfigureAwait(false) or ConfigureAwait(true);
-                if (expr != null && expr.Name.Identifier.ValueText == "ConfigureAwait")
-                {
-                    newExpr = awaitExpr.ReplaceNode(awaitExpr.Expression, expr.Expression);
-                }
-            }
-
+            // TODO: Check whether it is ConfigureAwait(false) or ConfigureAwait(true);
+            var newExpr = awaitExpr.ReplaceNode(awaitExpr.Expression, trimmedExpr);
             return newExpr.Expression.WithAdditionalAnnotations(Simplifier.Annotation);
         }
     }
