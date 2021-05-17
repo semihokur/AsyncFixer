@@ -507,6 +507,51 @@ class Program
             VerifyCSharpFix(test, fixtest);
         }
 
+        [Fact]
+        public void OutOfScopeSiblingUsingBlock()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(bool cond)
+    {
+        using (var stream = FileStream.Null)
+        {
+            int x = 5;
+        }
+
+        var stream = ""Stream"";
+        await Task.Run(() => { Console.WriteLine(stream.Length); });
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo(bool cond)
+    {
+        using (var stream = FileStream.Null)
+        {
+            int x = 5;
+        }
+
+        var stream = ""Stream"";
+        return Task.Run(() => { Console.WriteLine(stream.Length); });
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
         /// <summary>
         /// Do not remove await expressions involving disposable objects inside using block
         /// </summary>

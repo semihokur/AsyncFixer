@@ -49,7 +49,7 @@ namespace AsyncFixer.UnnecessaryAsync
                 return true;
             }
 
-            // Check sibling nodes for using statements which will be in scope
+            // Check sibling nodes for using declarations which will be in scope
             // Example: 
             //  public async Task Foo() 
             //  {
@@ -63,11 +63,6 @@ namespace AsyncFixer.UnnecessaryAsync
                     // Reached the statement we are considering
                     // No need to keep going
                     break;
-                }
-
-                if (sibling.Kind() == SyntaxKind.UsingStatement)
-                {
-                    return true;
                 }
 
                 if (sibling is LocalDeclarationStatementSyntax declaration)
