@@ -433,6 +433,126 @@ class Program
         }
 
         /// <summary>
+        /// Do not remove await expressions in using scopes
+        /// Otherwise, the object is disposed early which may have unexpected
+        /// consequences or be semantically incorrect.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitAfterUsingStatement2()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+using System.IO;
+
+class Program
+{
+    async Task foo()
+    {
+        using var sw = new DisposableStopwatch(onDispose: () => Console.WriteLine(""Finished!"");
+        await Task.Delay(1000);
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// Ignore using statements that are in scopes that the fixer won't modify
+        /// </summary>
+        [Fact]
+        public void OutOfScopeUsingDeclaration()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(bool cond)
+    {
+        if (cond)
+        {
+            using var stream = FileStream.Null;
+            int x = 5;
+        }
+
+        var stream = ""Stream"";
+        await Task.Run(() => { Console.WriteLine(stream.Length); });
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo(bool cond)
+    {
+        if (cond)
+        {
+            using var stream = FileStream.Null;
+            int x = 5;
+        }
+
+        var stream = ""Stream"";
+        return Task.Run(() => { Console.WriteLine(stream.Length); });
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        [Fact]
+        public void OutOfScopeSiblingUsingBlock()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(bool cond)
+    {
+        using (var stream = FileStream.Null)
+        {
+            int x = 5;
+        }
+
+        var stream = ""Stream"";
+        await Task.Run(() => { Console.WriteLine(stream.Length); });
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo(bool cond)
+    {
+        using (var stream = FileStream.Null)
+        {
+            int x = 5;
+        }
+
+        var stream = ""Stream"";
+        return Task.Run(() => { Console.WriteLine(stream.Length); });
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
         /// Do not remove await expressions involving disposable objects inside using block
         /// </summary>
         [Fact]
@@ -574,7 +694,7 @@ class Program
 
             VerifyCSharpDiagnostic(test);
         }
-
+        
         [Fact]
         public void NoWarn_UsingStatement()
         {
@@ -615,7 +735,7 @@ class Program
         }
 
         [Fact]
-        public void NoWarn_UsingStatementWithDataflow()
+        public void NoWarn_UsingStatement3()
         {
             var test = @"
 using System;
@@ -639,7 +759,7 @@ class Program
         }
 
         [Fact]
-        public void NoWarn_UsingStatementWithDataflow2()
+        public void NoWarn_UsingStatement4()
         {
             var test = @"
 using System;
@@ -664,57 +784,7 @@ class Program
         }
 
         [Fact]
-        public void UsingStatementWithDataflow2()
-        {
-            var test = @"
-using System;
-using System.Threading.Tasks;
-
-class Program
-{
-    async Task foo()
-    {
-        using var stream = new MemoryStream();
-        int streamOperation()
-        {
-            var stream2 = new MemoryStream();
-            return stream2.Read(null);
-        }
-        
-        stream.Read(null);
-        var t = Task.Run(() => streamOperation());
-        await t;
-    }
-}";
-            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
-            VerifyCSharpDiagnostic(test, expected);
-
-            var fixtest = @"
-using System;
-using System.Threading.Tasks;
-
-class Program
-{
-    Task foo()
-    {
-        using var stream = new MemoryStream();
-        int streamOperation()
-        {
-            var stream2 = new MemoryStream();
-            return stream2.Read(null);
-        }
-        
-        stream.Read(null);
-        var t = Task.Run(() => streamOperation());
-        return t;
-    }
-}";
-
-            VerifyCSharpFix(test, fixtest);
-        }
-
-        [Fact(Skip = "TODO: fix the dataflow analysis to analyze all locations of the symbol, not only the definitions")]
-        public void NoWarn_UsingStatementWithDataflowComplicated()
+        public void NoWarn_UsingStatement5()
         {
             var test = @"
 using System;
