@@ -63,6 +63,21 @@ namespace AsyncFixer
             return !SymbolEqualityComparer.Default.Equals(typeInfo.Type, typeInfo.ConvertedType);
         }
 
+        public static ExpressionSyntax RemoveConfigureAwait(ExpressionSyntax expression)
+        {
+            var invoc = expression as InvocationExpressionSyntax;
+            if (invoc != null)
+            {
+                var expr = invoc.Expression as MemberAccessExpressionSyntax;
+                if (expr != null && expr.Name.Identifier.ValueText == "ConfigureAwait")
+                {
+                    return expr.Expression;
+                }
+            }
+
+            return expression;
+        }
+
         public static T FirstAncestorOrSelfUnderGivenNode<T>(this SyntaxNode node, SyntaxNode parent)
             where T : SyntaxNode
         {

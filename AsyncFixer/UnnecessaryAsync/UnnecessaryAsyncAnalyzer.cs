@@ -85,6 +85,11 @@ namespace AsyncFixer.UnnecessaryAsync
                     return;
                 }
 
+                if (!WillFixedExpressionBeCorrect(awaitExpressions[0]))
+                {
+                    return;
+                }
+
                 context.ReportDiagnostic(diagnostic);
                 return;
             }
@@ -128,6 +133,10 @@ namespace AsyncFixer.UnnecessaryAsync
                         return;
                     }
 
+                    if (!WillFixedExpressionBeCorrect(returnStatement.Expression as AwaitExpressionSyntax)) {
+                        return;
+                    }
+
                     numAwait++;
                 }
             }
@@ -147,6 +156,10 @@ namespace AsyncFixer.UnnecessaryAsync
 
                 if (!IsSafeToRemoveAsyncAwait(lastStatement))
                 {
+                    return;
+                }
+
+                if (!WillFixedExpressionBeCorrect((lastStatement as ExpressionStatementSyntax)?.Expression as AwaitExpressionSyntax)) {
                     return;
                 }
 
@@ -191,6 +204,26 @@ namespace AsyncFixer.UnnecessaryAsync
                 }
 
                 return true;
+            }
+
+            bool WillFixedExpressionBeCorrect(AwaitExpressionSyntax fixableExpression)
+            {
+                // When fixing we remove calls to ConfigureAwait:
+                var fixedExpression = Helpers.RemoveConfigureAwait(fixableExpression.Expression);
+                
+                // Let's check that the types match. There can be a mismatch, for example,
+                // if we are awaiting a ValueTask in a Task-returning method, i.e. this compiles:
+                //     ValueTask<int> Foo() => ValueTask.FromResult(0);
+                //     Task<int> Bar() => await Foo();
+                // But the 'fixed' version doesn't:
+                //     Task<int> Bar => Foo();    // Error!
+                var fixedExpressionValueType = context.SemanticModel.GetTypeInfo(fixedExpression);
+                var methodReturnType = context.SemanticModel.GetTypeInfo(node.ReturnType);
+
+                // Compare by name instead of by type, else we dont allow stuff compatible
+                // types like Task and Task<T> (and we already checked for covariance beforehand). 
+                return fixedExpressionValueType.Type.Name == methodReturnType.Type.Name
+                        || fixedExpressionValueType.Type.IsTask() && node.ReturnsVoid();
             }
         }
 
