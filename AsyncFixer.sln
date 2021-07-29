@@ -1,6 +1,7 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29806.167
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31521.260
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncFixer", "AsyncFixer\AsyncFixer.csproj", "{6FEF875C-5D04-4503-AE42-4EBE59C5083B}"
 EndProject
@@ -8,7 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncFixer.Test", "AsyncFix
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncFixer.Vsix", "AsyncFixer.Vsix\AsyncFixer.Vsix.csproj", "{CA1DE4CD-9D17-4F1E-A043-F259B92966B1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncFixer.Samples", "AsyncFixer.Samples\AsyncFixer.Samples.csproj", "{7BBD9BF8-A30B-4C1B-BBF7-4B5668E9826D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncFixer.Samples", "AsyncFixer.Samples\AsyncFixer.Samples.csproj", "{7BBD9BF8-A30B-4C1B-BBF7-4B5668E9826D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncFixer2022.Vsix", "AsyncFixer2022.Vsix\AsyncFixer2022.Vsix.csproj", "{32E16283-1061-4DE2-9985-EC0443018982}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,6 +35,10 @@ Global
 		{7BBD9BF8-A30B-4C1B-BBF7-4B5668E9826D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7BBD9BF8-A30B-4C1B-BBF7-4B5668E9826D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7BBD9BF8-A30B-4C1B-BBF7-4B5668E9826D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{32E16283-1061-4DE2-9985-EC0443018982}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32E16283-1061-4DE2-9985-EC0443018982}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32E16283-1061-4DE2-9985-EC0443018982}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32E16283-1061-4DE2-9985-EC0443018982}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

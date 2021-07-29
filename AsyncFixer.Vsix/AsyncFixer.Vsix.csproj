@@ -5,7 +5,7 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <RootNamespace>AsyncFixer</RootNamespace>
-    <AssemblyName>AsyncFixer.VS</AssemblyName>
+    <AssemblyName>AsyncFixer.VS2019</AssemblyName>
   </PropertyGroup>
 
   <PropertyGroup>
