@@ -150,6 +150,49 @@ namespace AsyncFixer
                 (oldNode, newNode) => replacementPairs.First(pair => pair.OldNode == oldNode).NewNode
                 );
         }
+
+        /// <summary>
+        /// Return the names of all variables that are read-accessed in the given statement.
+        /// </summary>
+        /// <remarks>
+        /// The method iteratively goes through the definitions to find implicitly-accessed variables. 
+        /// </remarks>
+        public static IEnumerable<string> GetAccessedVariableNamesWithPointsToAnalysis(SemanticModel semanticModel, SyntaxNode root, SyntaxNode node, int depth = 0)
+        {
+            if (depth == 5 || node == null || root == null)
+            {
+                // Put a limit for the call stack frame
+                yield break;
+            }
+
+            var dataFlowResult = semanticModel.AnalyzeDataFlow(node);
+            if (dataFlowResult?.Succeeded == true)
+            {
+                foreach (ISymbol symbol in dataFlowResult.ReadInside)
+                {
+                    yield return symbol.Name;
+
+                    if (symbol.DeclaringSyntaxReferences == null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var syntaxRef in symbol.DeclaringSyntaxReferences)
+                    {
+                        var expressions = root.FindNode(syntaxRef.Span, getInnermostNodeForTie: true).DescendantNodes((n) => !(n is ExpressionSyntax)).OfType<ExpressionSyntax>();
+
+                        foreach (var expr in expressions)
+                        {
+                            var names = GetAccessedVariableNamesWithPointsToAnalysis(semanticModel, root, expr, depth + 1);
+                            foreach (var name in names)
+                            {
+                                yield return name;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>

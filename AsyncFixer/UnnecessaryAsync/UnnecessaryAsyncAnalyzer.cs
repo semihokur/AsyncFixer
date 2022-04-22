@@ -39,7 +39,7 @@ namespace AsyncFixer.UnnecessaryAsync
             context.RegisterSyntaxNodeAction(AnalyzeMethodDeclaration, SyntaxKind.MethodDeclaration);
         }
 
-        private bool HasUsingOrTryParent(SyntaxNode node, SyntaxNode root)
+        private bool IsInUsingOrTryScope(SyntaxNode node, SyntaxNode root)
         {
             if (node == root) return false;
             var parent = node.Parent;
@@ -50,7 +50,35 @@ namespace AsyncFixer.UnnecessaryAsync
                 return true;
             }
 
-            return HasUsingOrTryParent(parent, root);
+            // Check sibling nodes for using declarations which will be in scope
+            // Example: 
+            //  public async Task Foo() 
+            //  {
+            //      using var x = new Disposable();   <-- We want to detect this statement
+            //      await Task.Delay(1);
+            //  }
+            foreach (var sibling in parent.ChildNodes())
+            {
+                if (sibling == node)
+                {
+                    // Reached the statement we are considering
+                    // No need to keep going
+                    break;
+                }
+
+                if (sibling is LocalDeclarationStatementSyntax declaration)
+                {
+                    if (declaration.UsingKeyword.Kind() == SyntaxKind.UsingKeyword)
+                    {
+                        // Variable declaration with using,
+                        // which will be in scope in the await statement (as in the above example)
+                        return true;
+                    }
+                }
+
+            }
+            
+            return IsInUsingOrTryScope(parent, root);
         }
 
         private void AnalyzeMethodDeclaration(SyntaxNodeAnalysisContext context)
@@ -71,7 +99,6 @@ namespace AsyncFixer.UnnecessaryAsync
             {
                 // Expression-bodied members 
                 // e.g. public static async Task Foo() => await Task.FromResult(true);
-
                 var returnExpressionType = context.SemanticModel.GetTypeInfo(node.ExpressionBody?.Expression);
                 if (returnExpressionType.IsImplicitTypeCasting())
                 {
@@ -103,15 +130,8 @@ namespace AsyncFixer.UnnecessaryAsync
 
             var controlFlow = context.SemanticModel.AnalyzeControlFlow(node.Body);
             var returnStatements = controlFlow?.ReturnStatements ?? ImmutableArray<SyntaxNode>.Empty;
-
-            // Retrieve the disposable object identifiers from the using statements. 
-            // For instance, for the following statement, we'd like to return 'source'.
-            //      using FileStream source = File.Open("data", FileMode.Open);
-            var disposableObjectNames = node.Body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>()
-                .Where(a => a.UsingKeyword.Kind() != SyntaxKind.None)
-                .SelectMany(a => a.DescendantNodes().OfType<VariableDeclaratorSyntax>().Select(b => b.Identifier.ValueText)).ToList();
-
             var numAwait = 0;
+
             if (returnStatements.Any())
             {
                 foreach (var temp in returnStatements)
@@ -176,31 +196,9 @@ namespace AsyncFixer.UnnecessaryAsync
 
             bool IsSafeToRemoveAsyncAwait(StatementSyntax statement)
             {
-                if (HasUsingOrTryParent(statement, node))
+                if (IsInUsingOrTryScope(statement, node))
                 {
                     // If it is under 'using' or 'try' block, it is not safe to remove async/await.
-                    return false;
-                }
-
-                // Make sure that we do not give a warning about the await statement involving an object which is created by an using statement.
-                // We use dataflow analysis to accurately detect a case like below:
-                //  async Task foo()
-                //  {
-                //      using var stream = new MemoryStream();
-                //      int streamOperation()
-                //      {
-                //          return stream.Read(null);
-                //      }
-                //      
-                //      var t = Task.Run(() => streamOperation())
-                //      await t;
-                //  }
-                // In the example above, we need to find out whether 'stream' is accessed in the last statement.
-
-                var names = GetAccessedVariableNamesWithPointsToAnalysis(context.SemanticModel, node, statement).ToList();
-                
-                if (names.Any(a => disposableObjectNames.Contains(a)))
-                {
                     return false;
                 }
 
@@ -228,47 +226,5 @@ namespace AsyncFixer.UnnecessaryAsync
             }
         }
 
-        /// <summary>
-        /// Return the names of all variables that are read-accessed in the given statement.
-        /// </summary>
-        /// <remarks>
-        /// The method iteratively goes through the definitions to find implicitly-accessed variables. 
-        /// </remarks>
-        private IEnumerable<string> GetAccessedVariableNamesWithPointsToAnalysis(SemanticModel semanticModel, SyntaxNode root, SyntaxNode node, int depth = 0)
-        {
-            if (depth == 5 || node == null || root == null)
-            {
-                // Put a limit for the call stack frame
-                yield break;
-            }
-
-            var dataFlowResult = semanticModel.AnalyzeDataFlow(node);
-            if (dataFlowResult?.Succeeded == true)
-            {
-                foreach (ISymbol symbol in dataFlowResult.ReadInside)
-                {
-                    yield return symbol.Name;
-
-                    if (symbol.DeclaringSyntaxReferences == null)
-                    {
-                        continue;
-                    }
-                    
-                    foreach (var syntaxRef in symbol.DeclaringSyntaxReferences)
-                    {
-                        var expressions = root.FindNode(syntaxRef.Span, getInnermostNodeForTie: true).DescendantNodes((n) => !(n is ExpressionSyntax)).OfType<ExpressionSyntax>();
-
-                        foreach (var expr in expressions)
-                        {
-                            var names = GetAccessedVariableNamesWithPointsToAnalysis(semanticModel, root, expr, depth + 1);
-                            foreach (var name in names)
-                            {
-                                yield return name;
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
