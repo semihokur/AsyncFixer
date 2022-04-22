@@ -19,11 +19,12 @@ namespace AsyncFixer.BlockingCallInsideAsync
             DiagnosticIds.BlockingCallInsideAsync,
             Title,
             MessageFormat,
-            DiagnosticIds.Category,
+            Constants.DiagnosticCategory,
             DiagnosticSeverity.Warning,
             isEnabledByDefault: true,
             description: Description,
-            customTags: WellKnownDiagnosticTags.Telemetry);
+            customTags: WellKnownDiagnosticTags.Telemetry,
+            helpLinkUri: Constants.RepositoryLink);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(Rule); } }
 
