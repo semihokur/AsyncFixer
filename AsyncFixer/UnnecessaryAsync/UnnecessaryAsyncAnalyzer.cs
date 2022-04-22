@@ -1,11 +1,9 @@
 using System.Collections.Immutable;
 using System.Linq;
-using System.Diagnostics;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Operations;
 using System.Collections.Generic;
 using System;
 
@@ -134,7 +132,8 @@ namespace AsyncFixer.UnnecessaryAsync
                         return;
                     }
 
-                    if (!WillFixedExpressionBeCorrect(returnStatement.Expression as AwaitExpressionSyntax)) {
+                    if (!WillFixedExpressionBeCorrect(returnStatement.Expression as AwaitExpressionSyntax))
+                    {
                         return;
                     }
 
@@ -160,7 +159,8 @@ namespace AsyncFixer.UnnecessaryAsync
                     return;
                 }
 
-                if (!WillFixedExpressionBeCorrect((lastStatement as ExpressionStatementSyntax)?.Expression as AwaitExpressionSyntax)) {
+                if (!WillFixedExpressionBeCorrect((lastStatement as ExpressionStatementSyntax)?.Expression as AwaitExpressionSyntax))
+                {
                     return;
                 }
 
@@ -197,21 +197,33 @@ namespace AsyncFixer.UnnecessaryAsync
                 //  }
                 // In the example above, we need to find out whether 'stream' is accessed in the last statement.
 
-                var names = GetAccessedVariableNamesWithPointsToAnalysis(context.SemanticModel, node, statement).ToList();
-                
-                if (names.Any(a => disposableObjectNames.Contains(a)))
+                try
                 {
+                    List<string> names = GetAccessedVariableNamesWithPointsToAnalysis(context.SemanticModel, node, statement).ToList();
+                    return !names.Any(a => disposableObjectNames.Contains(a));
+                }
+                catch (InvalidCastException)
+                {
+/* 
+   semanticModel.AnalyzeDataFlow(node).ReadInside throws the following exception in the following example: https://github.com/lupusbytes/AsyncFixerBugExample 
+
+   System.InvalidCastException: Unable to cast object of type 'Microsoft.CodeAnalysis.CSharp.Symbols.Metadata.PE.PEAssemblySymbol' to type 'Microsoft.CodeAnalysis.CSharp.Symbols.SourceAssemblySymbol'.
+   at Microsoft.CodeAnalysis.CSharp.DefiniteAssignmentPass..ctor(CSharpCompilation compilation, Symbol member, BoundNode node, EmptyStructTypeCache emptyStructs, Boolean trackUnassignments, HashSet`1 initiallyAssignedVariables)
+   at Microsoft.CodeAnalysis.CSharp.UnassignedVariablesWalker.Analyze(CSharpCompilation compilation, Symbol member, BoundNode node, Boolean convertInsufficientExecutionStackExceptionToCancelledByStackGuardException)
+   at Microsoft.CodeAnalysis.CSharp.CSharpDataFlowAnalysis.get_UnassignedVariables()
+   at Microsoft.CodeAnalysis.CSharp.CSharpDataFlowAnalysis.get_DataFlowsIn()
+
+   This is a clearly bug in Microsoft.CodeAnalysis package. We just swallow the exception here.
+*/
                     return false;
                 }
-
-                return true;
             }
 
             bool WillFixedExpressionBeCorrect(AwaitExpressionSyntax fixableExpression)
             {
                 // When fixing we remove calls to ConfigureAwait:
                 var fixedExpression = Helpers.RemoveConfigureAwait(fixableExpression.Expression);
-                
+
                 // Let's check that the types match. There can be a mismatch, for example,
                 // if we are awaiting a ValueTask in a Task-returning method, i.e. this compiles:
                 //     ValueTask<int> Foo() => ValueTask.FromResult(0);
@@ -242,7 +254,8 @@ namespace AsyncFixer.UnnecessaryAsync
                 yield break;
             }
 
-            var dataFlowResult = semanticModel.AnalyzeDataFlow(node);
+            DataFlowAnalysis dataFlowResult = semanticModel.AnalyzeDataFlow(node);
+
             if (dataFlowResult?.Succeeded == true)
             {
                 foreach (ISymbol symbol in dataFlowResult.ReadInside)
@@ -253,7 +266,7 @@ namespace AsyncFixer.UnnecessaryAsync
                     {
                         continue;
                     }
-                    
+
                     foreach (var syntaxRef in symbol.DeclaringSyntaxReferences)
                     {
                         var expressions = root.FindNode(syntaxRef.Span, getInnermostNodeForTie: true).DescendantNodes((n) => !(n is ExpressionSyntax)).OfType<ExpressionSyntax>();
