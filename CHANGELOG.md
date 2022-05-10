@@ -1,22 +1,28 @@
 # Release History
 
+## 1.6.0 (2022-05)
+- 01.UnnecessaryAsync: Do not warn when the await expressions are in the scope of a using declaration.
+- 01.UnnecessaryAsync: Fix crash due to InvalidCastExpression.
+- Upgrade Visual Studio SDK packages for vsix extensions.
+- Upgrade Microsoft.CodeAnalysis package to 3.11.0
+
 ## 1.5.1 (2021-01)
-- 01.UnnecessaryAsync: Implemented a dataflow analysis for disposable objects to fix false-negatives and false-positives
+- 01.UnnecessaryAsync: Implemented a dataflow analysis for disposable objects to fix false-negatives and false-positives.
 
 ## 1.5.0 (2021-01)
-- 01.UnnecessaryAsync: Fix false-negatives to cover more cases
-- 02.BlockingCallInsideAsync: Stop suggesting async calls for virtual calls and Dispose methods
-- Add support for ValueTask
+- 01.UnnecessaryAsync: Fix false-negatives to cover more cases.
+- 02.BlockingCallInsideAsync: Stop suggesting async calls for virtual calls and Dispose methods.
+- Add support for ValueTask.
 
 ## 1.4.1 (2021-01)
-- 01.UnnecessaryAsync: Take account of the lack of covariance in the Task class
-- 03.AsyncVoid: Add support for fire-and-forget delegates 
-- 04.AsyncCallInsideUsingBlock: Fix a potential NRE
+- 01.UnnecessaryAsync: Take account of the lack of covariance in the Task class.
+- 03.AsyncVoid: Add support for fire-and-forget delegates.
+- 04.AsyncCallInsideUsingBlock: Fix a potential NRE.
 
 ## 1.4.0 (2021-01)
-- 01.UnnecessaryAsync: Fix false warnings with `using` expression statements
-- 01.UnnecessaryAsync: Support for expression-bodied members
-- 02.BlockingCallInsideAsync: Stop suggesting async calls from non-system assemblies
+- 01.UnnecessaryAsync: Fix false warnings with `using` expression statements.
+- 01.UnnecessaryAsync: Support for expression-bodied members.
+- 02.BlockingCallInsideAsync: Stop suggesting async calls from non-system assemblies.
 
 ## 1.3.0 (2020-05)
 - Updated Roslyn dependencies to v3.3.1.

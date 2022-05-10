@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="AsyncFixer2022.edab5fce-e3aa-4fea-9d60-a07bc11d493b" Version="1.5.1" Language="en-US" Publisher="Semih Okur"/>
+    <Identity Id="AsyncFixer2022.edab5fce-e3aa-4fea-9d60-a07bc11d493b" Version="1.6.0" Language="en-US" Publisher="Semih Okur"/>
     <DisplayName>AsyncFixer for Visual Studio 2022</DisplayName>
     <Description xml:space="preserve">Advanced async/await Diagnostics and CodeFixes for C#.</Description>
 	<MoreInfo>http://www.asyncfixer.com</MoreInfo>

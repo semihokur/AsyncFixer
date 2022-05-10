@@ -9,7 +9,7 @@
 
   <PropertyGroup>
     <PackageId>AsyncFixer</PackageId>
-    <PackageVersion>1.5.5</PackageVersion>
+    <PackageVersion>1.6.0</PackageVersion>
     <Authors>Semih Okur</Authors>
     <Title>AsyncFixer: Advanced async/await Diagnostics and CodeFixes for C#</Title>
     <Description>
@@ -21,7 +21,7 @@
     <PackageProjectUrl>http://www.asyncfixer.com</PackageProjectUrl>
     <PackageIcon>icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/semihokur/AsyncFixer</RepositoryUrl> 
-    <Copyright>Copyright (c) AsyncFixer 2015-2021</Copyright>
+    <Copyright>Copyright (c) AsyncFixer 2015-2022</Copyright>
     <PackageTags>asyncfixer analyzers async/await asynchronous concurrency diagnostics codefix roslyn codeanalysis async await</PackageTags>
     <NoPackageAnalysis>false</NoPackageAnalysis>
 	<DevelopmentDependency>true</DevelopmentDependency>
