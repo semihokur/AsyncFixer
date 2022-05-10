@@ -1,8 +1,12 @@
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using TestHelper;
 using AsyncFixer.UnnecessaryAsync;
 using Xunit;
+using Verify = AsyncFixer.Test.Helpers.CSharpCodeFixVerifier<
+    AsyncFixer.UnnecessaryAsync.UnnecessaryAsyncAnalyzer,
+    AsyncFixer.UnnecessaryAsync.UnnecessaryAsyncFixer>;
 
 namespace AsyncFixer.Test
 {
@@ -457,62 +461,13 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
-        /// <summary>
-        /// Ignore using statements that are in scopes that the fixer won't modify
-        /// </summary>
         [Fact]
-        public void OutOfScopeUsingDeclaration()
+        public async Task OutOfScopeSiblingUsingBlock()
         {
             var test = @"
 using System;
 using System.Threading.Tasks;
-
-class Program
-{
-    async Task foo(bool cond)
-    {
-        if (cond)
-        {
-            using var stream = FileStream.Null;
-            int x = 5;
-        }
-
-        var stream = ""Stream"";
-        await Task.Run(() => { Console.WriteLine(stream.Length); });
-    }
-}";
-
-            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
-            VerifyCSharpDiagnostic(test, expected);
-
-            var fixtest = @"
-using System;
-using System.Threading.Tasks;
-
-class Program
-{
-    Task foo(bool cond)
-    {
-        if (cond)
-        {
-            using var stream = FileStream.Null;
-            int x = 5;
-        }
-
-        var stream = ""Stream"";
-        return Task.Run(() => { Console.WriteLine(stream.Length); });
-    }
-}";
-
-            VerifyCSharpFix(test, fixtest);
-        }
-
-        [Fact]
-        public void OutOfScopeSiblingUsingBlock()
-        {
-            var test = @"
-using System;
-using System.Threading.Tasks;
+using System.IO;
 
 class Program
 {
@@ -523,17 +478,17 @@ class Program
             int x = 5;
         }
 
-        var stream = ""Stream"";
-        await Task.Run(() => { Console.WriteLine(stream.Length); });
+        {
+            var stream = ""Stream"";
+            await Task.Run(() => { Console.WriteLine(stream.Length); });
+        }
     }
 }";
-
-            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
-            VerifyCSharpDiagnostic(test, expected);
 
             var fixtest = @"
 using System;
 using System.Threading.Tasks;
+using System.IO;
 
 class Program
 {
@@ -544,12 +499,28 @@ class Program
             int x = 5;
         }
 
-        var stream = ""Stream"";
-        return Task.Run(() => { Console.WriteLine(stream.Length); });
+        {
+            var stream = ""Stream"";
+            return Task.Run(() => { Console.WriteLine(stream.Length); });
+        }
     }
 }";
 
-            VerifyCSharpFix(test, fixtest);
+            await new Verify.Test
+            {
+                TestState =
+                {
+                    Sources = { test },
+                    ExpectedDiagnostics =
+                    {
+                        Verify.Diagnostic().WithSpan(8, 5, 19, 6).WithArguments("foo"),
+                    },
+                },
+                FixedState =
+                {
+                    Sources = { fixtest },
+                },
+            }.RunAsync();
         }
 
         /// <summary>

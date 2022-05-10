@@ -90,10 +90,18 @@ namespace AsyncFixer.UnnecessaryAsync
                     // For methods that do not have return statements. They just have await statements
 
                     // if awaitExpression is the last statement's expression
-                    var lastStatement = methodDecl.Body.Statements.LastOrDefault() as ExpressionStatementSyntax;
-                    if (lastStatement?.Expression?.Kind() == SyntaxKind.AwaitExpression)
+                    var lastStatement = methodDecl.Body.Statements.LastOrDefault();
+
+                    if (lastStatement is BlockSyntax block)
                     {
-                        var newExpr = RemoveAwaitFromExpression((AwaitExpressionSyntax)lastStatement.Expression);
+                        lastStatement = block.Statements.LastOrDefault();
+                    }
+
+                    var exprStmnt = lastStatement as ExpressionStatementSyntax;
+
+                    if (exprStmnt?.Expression?.Kind() == SyntaxKind.AwaitExpression)
+                    {
+                        var newExpr = RemoveAwaitFromExpression((AwaitExpressionSyntax)exprStmnt.Expression);
 
                         var newStatement =
                             SyntaxFactory.ReturnStatement(newExpr)

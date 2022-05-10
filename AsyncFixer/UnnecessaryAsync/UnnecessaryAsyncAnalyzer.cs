@@ -170,6 +170,12 @@ namespace AsyncFixer.UnnecessaryAsync
                 // }
 
                 var lastStatement = node.Body.Statements.LastOrDefault();
+
+                if (lastStatement is BlockSyntax block)
+                {
+                    lastStatement = block.Statements.LastOrDefault();
+                }
+
                 if ((lastStatement as ExpressionStatementSyntax)?.Expression?.Kind() != SyntaxKind.AwaitExpression)
                 {
                     return;
@@ -222,7 +228,7 @@ namespace AsyncFixer.UnnecessaryAsync
                 // Compare by name instead of by type, else we dont allow stuff compatible
                 // types like Task and Task<T> (and we already checked for covariance beforehand). 
                 return fixedExpressionValueType.Type.Name == methodReturnType.Type.Name
-                        || fixedExpressionValueType.Type.IsTask() && node.ReturnsVoid();
+                        || (fixedExpressionValueType.Type.IsTask() && node.ReturnsVoid());
             }
         }
 
