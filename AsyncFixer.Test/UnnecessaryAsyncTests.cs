@@ -462,7 +462,7 @@ class Program
         }
 
         [Fact]
-        public async Task OutOfScopeSiblingUsingBlock()
+        public Task OutOfScopeSiblingUsingBlock()
         {
             var test = @"
 using System;
@@ -506,7 +506,7 @@ class Program
     }
 }";
 
-            await new Verify.Test
+            return new Verify.Test
             {
                 TestState =
                 {
@@ -940,6 +940,115 @@ class Program
     }
 }";
             VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact]
+        public Task NoWarn_AwaitForEach()
+        {
+            //No diagnostics expected to show up
+
+            var test = @"
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+internal class Program
+{
+    public async Task MyFunction()
+    {
+        await foreach (var i in RangeAsync(10, 3))
+        {
+            Console.WriteLine(i);
+        }
+
+        await Task.Delay(1);
+    }
+
+    static async IAsyncEnumerable<int> RangeAsync(int start, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            await Task.Delay(i);
+            yield return start + i;
+        }
+    }
+}";
+            return Verify.VerifyAsync(test);
+        }
+
+        [Fact]
+        public Task AwaitForEachUnderLambda()
+        {
+            var test = @"
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+internal class Program
+{
+    public async Task MyFunction()
+    {
+        await Task.Run(async () =>
+        {
+            await foreach (var i in RangeAsync(10, 3))
+            {
+                Console.WriteLine(i);
+            }
+        });
+    }
+
+    static async IAsyncEnumerable<int> RangeAsync(int start, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            await Task.Delay(i);
+            yield return start + i;
+        }
+    }
+}";
+
+            var fixtest = @"
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+internal class Program
+{
+    public Task MyFunction()
+    {
+        return Task.Run(async () =>
+         {
+             await foreach (var i in RangeAsync(10, 3))
+             {
+                 Console.WriteLine(i);
+             }
+         });
+    }
+
+    static async IAsyncEnumerable<int> RangeAsync(int start, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            await Task.Delay(i);
+            yield return start + i;
+        }
+    }
+}";
+            return new Verify.Test
+            {
+                TestState =
+                {
+                    Sources = { test },
+                    ExpectedDiagnostics =
+                    {
+                        Verify.Diagnostic().WithSpan(8, 5, 17, 6).WithArguments("MyFunction"),
+                    },
+                },
+                FixedState =
+                {
+                    Sources = { fixtest },
+                },
+            }.RunAsync();
         }
 
         protected override CodeFixProvider GetCSharpCodeFixProvider()

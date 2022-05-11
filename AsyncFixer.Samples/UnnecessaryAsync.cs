@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -108,6 +109,26 @@ namespace AsyncFixer.Samples
             {
                 await Task.Delay(3000);
                 await Task.Delay(2000);
+            }
+        }
+
+        public async Task MyFunction()
+        {
+            await Task.Run(async () =>
+            {
+                await foreach (var i in RangeAsync(10, 3))
+                {
+                    Console.WriteLine(i);
+                }
+            });
+        }
+
+        static async IAsyncEnumerable<int> RangeAsync(int start, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                await Task.Delay(i);
+                yield return start + i;
             }
         }
     }

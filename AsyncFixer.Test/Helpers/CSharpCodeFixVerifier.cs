@@ -36,7 +36,6 @@ namespace AsyncFixer.Test.Helpers
             var test = new Test
             {
                 TestCode = source,
-                LanguageVersion = LanguageVersion.Latest
             };
 
             test.ExpectedDiagnostics.AddRange(expected);

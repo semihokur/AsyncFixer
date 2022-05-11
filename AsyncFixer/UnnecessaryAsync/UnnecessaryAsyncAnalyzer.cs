@@ -91,6 +91,14 @@ namespace AsyncFixer.UnnecessaryAsync
                 return;
             }
 
+            var awaitForEachStatements = node.DescendantNodes().OfType<ForEachStatementSyntax>()
+                .Where(a => a.AwaitKeyword != null  && a.FirstAncestorOrSelfUnderGivenNode<LambdaExpressionSyntax>(node) == null).ToList();
+
+            if (awaitForEachStatements.Any())
+            {
+                return; 
+            }            
+
             // Retrieve all await expressions excluding the ones under lambda functions.
             var awaitExpressions = node.DescendantNodes().OfType<AwaitExpressionSyntax>().Where(a => a.FirstAncestorOrSelfUnderGivenNode<LambdaExpressionSyntax>(node) == null).ToList();
 
@@ -130,7 +138,7 @@ namespace AsyncFixer.UnnecessaryAsync
 
             var controlFlow = context.SemanticModel.AnalyzeControlFlow(node.Body);
             var returnStatements = controlFlow?.ReturnStatements ?? ImmutableArray<SyntaxNode>.Empty;
-            var numAwait = 0;
+            var numAwaitsToRemove = 0;
 
             if (returnStatements.Any())
             {
@@ -158,7 +166,7 @@ namespace AsyncFixer.UnnecessaryAsync
                         return;
                     }
 
-                    numAwait++;
+                    numAwaitsToRemove++;
                 }
             }
             else
@@ -190,10 +198,10 @@ namespace AsyncFixer.UnnecessaryAsync
                     return;
                 }
 
-                numAwait++;
+                numAwaitsToRemove++;
             }
 
-            if (numAwait < awaitExpressions.Count())
+            if (numAwaitsToRemove < awaitExpressions.Count())
             {
                 return;
             }
