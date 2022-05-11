@@ -1,9 +1,12 @@
-using Microsoft.CodeAnalysis;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using TestHelper;
-using AsyncFixer.AsyncVoid;
 using Xunit;
+using AsyncFixer.AsyncVoid;
+using Verify = AsyncFixer.Test.Helpers.CSharpCodeFixVerifier<
+    AsyncFixer.AsyncVoid.AsyncVoidAnalyzer,
+    AsyncFixer.AsyncVoid.AsyncVoidFixer>;
 
 namespace AsyncFixer.Test
 {
@@ -118,6 +121,29 @@ class Program
 
             // No fix should be suggested.
             VerifyCSharpFix(test, test);
+        }
+
+        [Fact]
+        public Task NoWarn_EventHandler()
+        {
+            //No diagnostics expected to show up
+
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    public void foo()
+    {
+        AppDomain.CurrentDomain.ProcessExit += async (a, b) =>
+        {
+            await Task.Delay(100);
+        };
+    }
+}";
+
+            return Verify.VerifyAsync(test);
         }
 
         protected override CodeFixProvider GetCSharpCodeFixProvider()

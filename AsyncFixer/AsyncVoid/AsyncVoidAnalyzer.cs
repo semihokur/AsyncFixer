@@ -54,6 +54,12 @@ namespace AsyncFixer.AsyncVoid
         private void AnalyzeAnonymousFunction(OperationAnalysisContext context)
         {
             var operation = (IAnonymousFunctionOperation)context.Operation;
+
+            if (operation.IsEventHandler())
+            {
+                return;
+            }
+
             var symbol = operation.Symbol;
             if (symbol == null || !symbol.IsAsync || !symbol.ReturnsVoid)
             {

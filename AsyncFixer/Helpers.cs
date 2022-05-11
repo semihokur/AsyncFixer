@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace AsyncFixer
 {
@@ -76,6 +77,21 @@ namespace AsyncFixer
             }
 
             return expression;
+        }
+
+        public static bool IsEventHandler(this IOperation operation)
+        {
+            while (operation != null)
+            {
+                if (operation is IEventAssignmentOperation)
+                {
+                    return true;
+                }
+
+                operation = operation.Parent;
+            }
+
+            return false;
         }
 
         public static T FirstAncestorOrSelfUnderGivenNode<T>(this SyntaxNode node, SyntaxNode parent)
