@@ -131,5 +131,28 @@ namespace AsyncFixer.Samples
                 yield return start + i;
             }
         }
+
+        Task foo()
+        {
+            using var destination = new MemoryStream();
+            using FileStream source = File.Open("data", FileMode.Open);
+            return source.CopyToAsync(destination);
+       }
+    }
+
+
+    class Program
+    {
+        static async void foo()
+        {
+            var newStream = new FileStream("", FileMode.Create);
+
+            using var stream3 = new FileStream("", FileMode.Create);
+            stream3.ReadAsync(null).GetAwaiter().GetResult();
+            var res = stream3.ReadAsync(null).Result;
+            newStream.CopyToAsync(stream3).Wait();
+            await newStream.CopyToAsync(stream3);
+            newStream.CopyToAsync(stream3);
+        }
     }
 }

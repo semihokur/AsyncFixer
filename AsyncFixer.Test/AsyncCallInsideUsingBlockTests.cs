@@ -2,9 +2,12 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using TestHelper;
-using AsyncFixer.AsyncVoid;
 using AsyncFixer.AsyncCallInsideUsingBlock;
 using Xunit;
+using Verify = AsyncFixer.Test.Helpers.CSharpCodeFixVerifier<
+    AsyncFixer.AsyncCallInsideUsingBlock.AsyncCallInsideUsingBlockAnalyzer,
+    Microsoft.CodeAnalysis.Testing.EmptyCodeFixProvider>;
+using System.Threading.Tasks;
 
 namespace AsyncFixer.Test
 {
@@ -191,7 +194,7 @@ class Program
         }
 
         [Fact]
-        public void NoWarn_UsingStatementNoWarning()
+        public Task UsingStatementWarning()
         {
             var test = @"
 using System;
@@ -199,13 +202,29 @@ using System.IO;
 
 class Program
 {
-    static void foo()
+    static async void foo()
     {
-        using var stream = new FileStream("", FileMode.Open);
-        stream.CopyToAsync(stream);
+        var newStream = new FileStream("""", FileMode.Create);
+
+        using var stream3 = new FileStream("""", FileMode.Create);
+        stream3.ReadAsync(null).GetAwaiter().GetResult();
+        var res = stream3.ReadAsync(null).Result;
+        newStream.CopyToAsync(stream3).Wait();
+        await newStream.CopyToAsync(stream3);
+        newStream.CopyToAsync(stream3);
     }
 }";
-            VerifyCSharpDiagnostic(test);
+            return new Verify.Test
+            {
+                TestState =
+                {
+                    Sources = { test },
+                    ExpectedDiagnostics =
+                    {
+                        Verify.Diagnostic().WithSpan(8, 5, 17, 6).WithArguments("MyFunction"),
+                    },
+                }
+            }.RunAsync();
         }
 
         [Fact(Skip = "TODO for later as this requires dataflow analysis")]
