@@ -55,6 +55,13 @@ namespace AsyncFixer.NestedTaskToOuterTask
                 return;
             }
 
+            // Only flag if the awaited type itself is a Task/ValueTask.
+            // This avoids false positives for tuple awaiters like (task1, task2) from TaskTupleAwaiter.
+            if (!awaitedType.IsTask())
+            {
+                return;
+            }
+
             var typeArgument = awaitedType.TypeArguments.OfType<INamedTypeSymbol>().FirstOrDefault();
             if (typeArgument == null || !typeArgument.IsTask())
             {

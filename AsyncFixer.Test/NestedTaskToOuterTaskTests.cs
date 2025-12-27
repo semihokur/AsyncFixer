@@ -123,6 +123,59 @@ class Program
             VerifyCSharpDiagnostic(test, expected);
         }
 
+        /// <summary>
+        /// No warning for tuple awaiter pattern like TaskTupleAwaiter (GitHub issue #31)
+        /// </summary>
+        [Fact]
+        public void NoWarn_TupleAwaiterPattern()
+        {
+            // When using TaskTupleAwaiter, you can await tuples of tasks.
+            // The awaited type is ValueTuple<Task<T1>, Task<T2>>, not Task<Task<T>>.
+            // This should not trigger AsyncFixer05.
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+// Simulating TaskTupleAwaiter extension methods
+public static class TupleAwaiterExtensions
+{
+    public static TupleAwaiter<T1, T2> GetAwaiter<T1, T2>(this (Task<T1>, Task<T2>) tasks)
+    {
+        return new TupleAwaiter<T1, T2>(tasks.Item1, tasks.Item2);
+    }
+}
+
+public struct TupleAwaiter<T1, T2> : System.Runtime.CompilerServices.INotifyCompletion
+{
+    private readonly Task<T1> _task1;
+    private readonly Task<T2> _task2;
+
+    public TupleAwaiter(Task<T1> task1, Task<T2> task2)
+    {
+        _task1 = task1;
+        _task2 = task2;
+    }
+
+    public bool IsCompleted => _task1.IsCompleted && _task2.IsCompleted;
+
+    public (T1, T2) GetResult() => (_task1.Result, _task2.Result);
+
+    public void OnCompleted(Action continuation) => Task.WhenAll(_task1, _task2).ContinueWith(_ => continuation());
+}
+
+class Program
+{
+    async Task TestMethod()
+    {
+        var task1 = Task.FromResult(1);
+        var task2 = Task.FromResult(""hello"");
+        var (a, b) = await (task1, task2);
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
         protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
         {
             return new NestedTaskToOuterTaskAnalyzer();
