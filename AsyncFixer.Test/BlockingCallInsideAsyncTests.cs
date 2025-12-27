@@ -690,6 +690,28 @@ class Program
             VerifyCSharpDiagnostic(test, expected);
         }
 
+        /// <summary>
+        /// No warning for Task.Result inside nameof expression (GitHub issue #30)
+        /// </summary>
+        [Fact]
+        public void NoWarn_NameofTaskResult()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        await Task.Delay(100);
+        var name = nameof(Task<object>.Result);
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new BlockingCallInsideAsyncFixer();

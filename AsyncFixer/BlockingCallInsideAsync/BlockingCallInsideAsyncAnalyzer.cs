@@ -103,6 +103,28 @@ namespace AsyncFixer.BlockingCallInsideAsync
             return true;
         }
 
+        /// <summary>
+        /// Checks if the given node is inside a nameof expression.
+        /// nameof() is a compile-time operator that doesn't execute the member access.
+        /// </summary>
+        private static bool IsInsideNameof(SyntaxNode node)
+        {
+            var current = node.Parent;
+            while (current != null)
+            {
+                // nameof is represented as an InvocationExpressionSyntax with an IdentifierNameSyntax of "nameof"
+                if (current is InvocationExpressionSyntax invocation &&
+                    invocation.Expression is IdentifierNameSyntax identifier &&
+                    identifier.Identifier.ValueText == "nameof")
+                {
+                    return true;
+                }
+
+                current = current.Parent;
+            }
+            return false;
+        }
+
         private void AnalyzeInvocation(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, string enclosingMethodName)
         {
             // Skip if the invocation is not in an async context (e.g., inside a synchronous local function or lambda)
@@ -153,6 +175,12 @@ namespace AsyncFixer.BlockingCallInsideAsync
         {
             // Skip if the member access is not in an async context (e.g., inside a synchronous local function or lambda)
             if (!IsInAsyncContext(memberAccess))
+            {
+                return;
+            }
+
+            // Skip if the member access is inside a nameof expression (GitHub issue #30)
+            if (IsInsideNameof(memberAccess))
             {
                 return;
             }
