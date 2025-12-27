@@ -1017,12 +1017,12 @@ internal class Program
     public Task MyFunction()
     {
         return Task.Run(async () =>
-         {
-             await foreach (var i in RangeAsync(10, 3))
-             {
-                 Console.WriteLine(i);
-             }
-         });
+        {
+            await foreach (var i in RangeAsync(10, 3))
+            {
+                Console.WriteLine(i);
+            }
+        });
     }
 
     static async IAsyncEnumerable<int> RangeAsync(int start, int count)
