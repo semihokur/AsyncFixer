@@ -41,10 +41,41 @@ namespace AsyncFixer
             return method.AttributeLists.Any(a => a.Attributes.ToString().Contains("TestMethod"));
         }
 
-        public static bool HasEventArgsParameter(this MethodDeclarationSyntax method)
+        public static bool HasEventArgsParameter(this MethodDeclarationSyntax method, SemanticModel semanticModel)
         {
-            return method.ParameterList != null &&
-                   method.ParameterList.Parameters.Any(param => param.Type.ToString().EndsWith("EventArgs", StringComparison.OrdinalIgnoreCase));
+            if (method.ParameterList == null)
+            {
+                return false;
+            }
+
+            foreach (var param in method.ParameterList.Parameters)
+            {
+                if (param.Type == null)
+                {
+                    continue;
+                }
+
+                var typeInfo = semanticModel.GetTypeInfo(param.Type);
+                var type = typeInfo.Type;
+
+                if (type == null)
+                {
+                    continue;
+                }
+
+                // Check if the type inherits from System.EventArgs
+                var current = type;
+                while (current != null)
+                {
+                    if (current.ContainingNamespace?.ToDisplayString() == "System" && current.Name == "EventArgs")
+                    {
+                        return true;
+                    }
+                    current = current.BaseType;
+                }
+            }
+
+            return false;
         }
 
         public static bool HasObjectStateParameter(this MethodDeclarationSyntax method)

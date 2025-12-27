@@ -86,7 +86,7 @@ namespace AsyncFixer.UnnecessaryAsync
             var node = (MethodDeclarationSyntax)context.Node;
             var diagnostic = Diagnostic.Create(Rule, node.GetLocation(), node.Identifier.Text);
 
-            if (!node.IsAsync() || node.HasEventArgsParameter() || node.HasObjectStateParameter() || node.IsTestMethod())
+            if (!node.IsAsync() || node.HasEventArgsParameter(context.SemanticModel) || node.HasObjectStateParameter() || node.IsTestMethod())
             {
                 return;
             }

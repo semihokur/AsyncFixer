@@ -146,6 +146,73 @@ class Program
             return Verify.VerifyAsync(test);
         }
 
+        [Fact]
+        public void NoWarn_EventArgsParameter()
+        {
+            // No diagnostics expected - method has EventArgs parameter
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async void OnEvent(object sender, EventArgs e)
+    {
+        await Task.Delay(100);
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact]
+        public void NoWarn_GenericEventArgsParameter()
+        {
+            // No diagnostics expected - method has generic EventArgs parameter (issue #39)
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class CurrentItemChangedEventArgs<T> : EventArgs
+{
+    public T CurrentItem { get; set; }
+}
+
+class Program
+{
+    async void OnCurrentItemChanged(object sender, CurrentItemChangedEventArgs<string> e)
+    {
+        await Task.Delay(100);
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact]
+        public void NoWarn_DerivedEventArgsParameter()
+        {
+            // No diagnostics expected - method has derived EventArgs parameter
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class MyEventArgs : EventArgs
+{
+    public string Message { get; set; }
+}
+
+class Program
+{
+    async void OnMyEvent(object sender, MyEventArgs e)
+    {
+        await Task.Delay(100);
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new AsyncVoidFixer();

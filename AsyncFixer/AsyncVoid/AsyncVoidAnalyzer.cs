@@ -42,7 +42,7 @@ namespace AsyncFixer.AsyncVoid
         {
             var node = (MethodDeclarationSyntax)context.Node;
 
-            if (!node.IsAsync() || !node.ReturnsVoid() || node.HasEventArgsParameter() || node.HasObjectStateParameter())
+            if (!node.IsAsync() || !node.ReturnsVoid() || node.HasEventArgsParameter(context.SemanticModel) || node.HasObjectStateParameter())
             {
                 return;
             }
