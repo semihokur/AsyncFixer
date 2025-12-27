@@ -1,5 +1,20 @@
 # Release History
 
+## 2.0.0 (2025-12)
+
+- **AsyncFixer06**: New analyzer to detect implicit `Task<T>` to `Task` conversion in non-async lambdas. Unlike async lambdas which produce compiler error CS8031, non-async lambdas silently discard the result. ([#26](https://github.com/semihokur/AsyncFixer/issues/26))
+- **AsyncFixer01**: Fix false positive with `await foreach` statements. ([#41](https://github.com/semihokur/AsyncFixer/issues/41))
+- **AsyncFixer01**: Fix false positives for `ValueTask<T>` return types.
+- **AsyncFixer02**: Fix false positive with `nameof(Task.Result)`. ([#30](https://github.com/semihokur/AsyncFixer/issues/30))
+- **AsyncFixer02**: Fix false positive after `Task.WhenAll` - accessing `.Result` on awaited `WhenAll` tasks is safe.
+- **AsyncFixer02**: Fix false positives in synchronous local functions and lambdas inside async methods.
+- **AsyncFixer03**: Fix false positive with generic `EventArgs` types. ([#39](https://github.com/semihokur/AsyncFixer/issues/39))
+- **AsyncFixer05**: Fix false positive with `TaskTupleAwaiter` and similar custom awaiters. ([#31](https://github.com/semihokur/AsyncFixer/issues/31))
+- **AsyncFixer05**: Detect nested `Task` in return statements. ([#27](https://github.com/semihokur/AsyncFixer/issues/27))
+- **Code Fix**: Correct nested invocation handling in Fix All operations. ([#37](https://github.com/semihokur/AsyncFixer/issues/37))
+- **Code Fix**: Add parentheses when async conversion is followed by member access. ([#38](https://github.com/semihokur/AsyncFixer/issues/38))
+- Upgrade `Microsoft.CodeAnalysis` to v5.0.0.
+
 ## 1.6.0 (2022-05)
 - 01.UnnecessaryAsync: Do not warn when the await expressions are in the scope of a using declaration.
 - 01.UnnecessaryAsync: Fix crash due to InvalidCastExpression.

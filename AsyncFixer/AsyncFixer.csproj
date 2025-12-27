@@ -13,15 +13,15 @@
     <Authors>Semih Okur</Authors>
     <Title>AsyncFixer: Advanced async/await Diagnostics and CodeFixes for C#</Title>
     <Description>
-	    AsyncFixer helps developers in finding and correcting common async/await misuses (i.e., anti-patterns). It currently detects 5 common kinds of async/await misuses and fixes 3 of them via program transformations. AsyncFixer has been tested with thousands of open-source C# projects and successfully handles many corner cases.
+	    AsyncFixer helps developers in finding and correcting common async/await misuses (i.e., anti-patterns). It currently detects 6 common kinds of async/await misuses and fixes 3 of them via program transformations. AsyncFixer has been tested with thousands of open-source C# projects and successfully handles many corner cases.
     </Description>
 	<PackageReleaseNotes>https://github.com/semihokur/AsyncFixer/blob/main/CHANGELOG.md</PackageReleaseNotes> 
 	<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
 	<PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <PackageProjectUrl>http://www.asyncfixer.com</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/semihokur/AsyncFixer</PackageProjectUrl>
     <PackageIcon>icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/semihokur/AsyncFixer</RepositoryUrl> 
-    <Copyright>Copyright (c) AsyncFixer 2015-2022</Copyright>
+    <Copyright>Copyright (c) AsyncFixer 2015-2026</Copyright>
     <PackageTags>asyncfixer analyzers async/await asynchronous concurrency diagnostics codefix roslyn codeanalysis async await</PackageTags>
     <NoPackageAnalysis>false</NoPackageAnalysis>
 	<DevelopmentDependency>true</DevelopmentDependency>
