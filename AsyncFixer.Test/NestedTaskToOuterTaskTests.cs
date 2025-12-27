@@ -124,6 +124,29 @@ class Program
         }
 
         /// <summary>
+        /// Warn when returning Task.Factory.StartNew with async lambda (GitHub issue #27)
+        /// </summary>
+        [Fact]
+        public void NestedTaskToOuterTask_ReturnStatement()
+        {
+            var test = @"
+using System.Threading.Tasks;
+
+class Program
+{
+    Task SomeDelay()
+    {
+        return Task.Factory.StartNew(async () =>
+        {
+            await Task.Delay(10000);
+        });
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.NestedTaskToOuterTask };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
         /// No warning for tuple awaiter pattern like TaskTupleAwaiter (GitHub issue #31)
         /// </summary>
         [Fact]

@@ -36,6 +36,7 @@ namespace AsyncFixer.NestedTaskToOuterTask
             context.RegisterSyntaxNodeAction(AnalyzeSimpleAssignmentExpr, SyntaxKind.SimpleAssignmentExpression);
             context.RegisterSyntaxNodeAction(AnalyzeAwait, SyntaxKind.AwaitExpression);
             context.RegisterSyntaxNodeAction(AnalyzeVariableDecl, SyntaxKind.VariableDeclarator);
+            context.RegisterSyntaxNodeAction(AnalyzeReturnStatement, SyntaxKind.ReturnStatement);
         }
 
         private void AnalyzeAwait(SyntaxNodeAnalysisContext context)
@@ -123,6 +124,45 @@ namespace AsyncFixer.NestedTaskToOuterTask
                 && rightType.TypeArguments != null && rightType.TypeArguments.FirstOrDefault()?.IsTask() == true)
             {
                 var diagnostic = Diagnostic.Create(Rule, left.GetLocation());
+                context.ReportDiagnostic(diagnostic);
+            }
+        }
+
+        private void AnalyzeReturnStatement(SyntaxNodeAnalysisContext context)
+        {
+            var node = (ReturnStatementSyntax)context.Node;
+            if (node.Expression == null)
+            {
+                return;
+            }
+
+            // Get the return type of the containing method
+            var containingMethod = node.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+            if (containingMethod == null)
+            {
+                return;
+            }
+
+            var methodSymbol = context.SemanticModel.GetDeclaredSymbol(containingMethod);
+            if (methodSymbol == null)
+            {
+                return;
+            }
+
+            var returnType = methodSymbol.ReturnType as INamedTypeSymbol;
+            if (returnType == null || !returnType.IsTask() || returnType.IsGenericType)
+            {
+                return;
+            }
+
+            // Check if the expression returns Task<Task>
+            var expressionMethodSymbol = context.SemanticModel.GetSymbolInfo(node.Expression).Symbol as IMethodSymbol;
+
+            var expressionReturnType = expressionMethodSymbol?.ReturnType as INamedTypeSymbol;
+            if (expressionReturnType?.BaseType?.IsTask() == true && expressionReturnType.IsGenericType
+                && expressionReturnType.TypeArguments != null && expressionReturnType.TypeArguments.FirstOrDefault()?.IsTask() == true)
+            {
+                var diagnostic = Diagnostic.Create(Rule, node.Expression.GetLocation());
                 context.ReportDiagnostic(diagnostic);
             }
         }
