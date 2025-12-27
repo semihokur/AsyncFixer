@@ -363,6 +363,120 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        /// <summary>
+        /// No warning for blocking calls inside synchronous local functions (GitHub issue #42)
+        /// </summary>
+        [Fact]
+        public void NoWarn_SynchronousLocalFunction()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.IO.Compression;
+using System.Threading.Tasks;
+
+class Program
+{
+    private async Task Wrapper()
+    {
+        await Task.Run(cpuBoundJob);
+
+        void cpuBoundJob()
+        {
+            using var memoryStream = new MemoryStream();
+            using var gzipStream = new GZipStream(memoryStream, CompressionMode.Compress, true);
+            gzipStream.Flush();
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning for blocking calls inside synchronous lambdas
+        /// </summary>
+        [Fact]
+        public void NoWarn_SynchronousLambda()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.IO.Compression;
+using System.Threading.Tasks;
+
+class Program
+{
+    private async Task Wrapper()
+    {
+        await Task.Run(() =>
+        {
+            using var memoryStream = new MemoryStream();
+            using var gzipStream = new GZipStream(memoryStream, CompressionMode.Compress, true);
+            gzipStream.Flush();
+        });
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning for Task.Result inside synchronous local functions
+        /// </summary>
+        [Fact]
+        public void NoWarn_TaskResultInSynchronousLocalFunction()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    private async Task Wrapper()
+    {
+        await Task.Run(cpuBoundJob);
+
+        void cpuBoundJob()
+        {
+            var t = Task.Run(() => 4);
+            var result = t.Result;
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// Still warn for blocking calls in async local functions
+        /// </summary>
+        [Fact]
+        public void Warn_AsyncLocalFunction()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    private async Task Wrapper()
+    {
+        await asyncLocalFunc();
+
+        async Task asyncLocalFunc()
+        {
+            StreamReader reader = null;
+            var a = reader.ReadToEnd();
+        }
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.BlockingCallInsideAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new BlockingCallInsideAsyncFixer();

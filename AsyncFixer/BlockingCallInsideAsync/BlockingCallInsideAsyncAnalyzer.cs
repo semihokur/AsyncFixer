@@ -65,8 +65,52 @@ namespace AsyncFixer.BlockingCallInsideAsync
             }
         }
 
+        /// <summary>
+        /// Checks if the given node is inside an async context where 'await' can be used.
+        /// Returns false if the node is inside a synchronous local function or lambda.
+        /// </summary>
+        private static bool IsInAsyncContext(SyntaxNode node)
+        {
+            var current = node.Parent;
+            while (current != null)
+            {
+                // Check for local functions - async ones are valid contexts, sync ones are not
+                if (current is LocalFunctionStatementSyntax localFunc)
+                {
+                    return localFunc.Modifiers.Any(SyntaxKind.AsyncKeyword);
+                }
+
+                // Check for lambda expressions - async ones are valid contexts, sync ones are not
+                if (current is LambdaExpressionSyntax lambda)
+                {
+                    return lambda.AsyncKeyword.IsKind(SyntaxKind.AsyncKeyword);
+                }
+
+                // Check for anonymous methods - async ones are valid contexts, sync ones are not
+                if (current is AnonymousMethodExpressionSyntax anonymousMethod)
+                {
+                    return anonymousMethod.AsyncKeyword.IsKind(SyntaxKind.AsyncKeyword);
+                }
+
+                // Stop at the enclosing method declaration - we know it's async from the caller
+                if (current is MethodDeclarationSyntax)
+                {
+                    return true;
+                }
+
+                current = current.Parent;
+            }
+            return true;
+        }
+
         private void AnalyzeInvocation(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, string enclosingMethodName)
         {
+            // Skip if the invocation is not in an async context (e.g., inside a synchronous local function or lambda)
+            if (!IsInAsyncContext(invocation))
+            {
+                return;
+            }
+
             var invokeMethod = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
             if (invokeMethod == null || invokeMethod.Name == "Invoke" || invokeMethod.Name == "Dispose")
             {
@@ -107,6 +151,11 @@ namespace AsyncFixer.BlockingCallInsideAsync
 
         private void AnalyzeMemberAccess(SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, MemberAccessExpressionSyntax memberAccess)
         {
+            // Skip if the member access is not in an async context (e.g., inside a synchronous local function or lambda)
+            if (!IsInAsyncContext(memberAccess))
+            {
+                return;
+            }
 
             var property = context.SemanticModel.GetSymbolInfo(memberAccess).Symbol as IPropertySymbol;
             if (property?.OriginalDefinition.ContainingType == null ||
