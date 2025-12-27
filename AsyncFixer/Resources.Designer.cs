@@ -221,5 +221,32 @@ namespace AsyncFixer {
                 return ResourceManager.GetString("UnnecessaryAsyncTitle", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A non-async lambda returning Task&lt;T&gt; is being assigned to a delegate expecting Task. Unlike async lambdas which produce compiler error CS8031, non-async lambdas silently discard the result due to implicit conversion from Task&lt;T&gt; to Task..
+        /// </summary>
+        internal static string ImplicitTaskTypeMismatchDescription {
+            get {
+                return ResourceManager.GetString("ImplicitTaskTypeMismatchDescription", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to A lambda returning Task&lt;T&gt; is being passed to a delegate expecting Task. The return value will be silently discarded..
+        /// </summary>
+        internal static string ImplicitTaskTypeMismatchMessageFormat {
+            get {
+                return ResourceManager.GetString("ImplicitTaskTypeMismatchMessageFormat", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Implicit conversion from Task&lt;T&gt; to Task discards the result.
+        /// </summary>
+        internal static string ImplicitTaskTypeMismatchTitle {
+            get {
+                return ResourceManager.GetString("ImplicitTaskTypeMismatchTitle", resourceCulture);
+            }
+        }
     }
 }

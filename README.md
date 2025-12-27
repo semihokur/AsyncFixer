@@ -1,4 +1,4 @@
-AsyncFixer helps developers in finding and correcting common `async/await` *misuses* (i.e., anti-patterns). It currently detects 5 common kinds of async/await misuses and fixes 3 of them via program transformations. AsyncFixer has been tested with thousands of open-source C# projects and successfully handles many corner cases. It is also one of the most common analyzers used in C# projects from Microsoft.
+AsyncFixer helps developers in finding and correcting common `async/await` *misuses* (i.e., anti-patterns). It currently detects 6 common kinds of async/await misuses and fixes 3 of them via program transformations. AsyncFixer has been tested with thousands of open-source C# projects and successfully handles many corner cases. It is also one of the most common analyzers used in C# projects from Microsoft.
 
 AsyncFixer will work just in the IDE and work as an analyzer on every project you open in Visual Studio. It can also operate in batch mode to correct all misuses in the document, project, or solution. You can download the VSIX from [here](https://visualstudiogallery.msdn.microsoft.com/03448836-db42-46b3-a5c7-5fc5d36a8308).
 
@@ -77,4 +77,64 @@ await Task.Factory.StartNew(() => Task.Delay(1000)).Unwrap();
 
 ```
 await Task.Run(() => Task.Delay(1000));
+```
+
+### AsyncFixer06: Discarded `Task<T>` result when converted to `Task`
+
+When a non-async lambda or delegate returns `Task<T>` but is assigned to a `Func<Task>` or similar delegate type expecting `Task`, the result value is silently discarded. This is because `Task<T>` implicitly converts to `Task`, but the generic result is lost.
+
+Note that for async lambdas, the compiler already catches this issue with error CS8031: *"Async lambda expression converted to a 'Task' returning delegate cannot return a value. Did you intend to return 'Task<T>'?"*. However, for non-async lambdas that directly return a `Task<T>`, there is no compiler warning - the conversion happens silently, which makes this pattern particularly dangerous.
+
+Here is an example:
+
+```
+async Task foo()
+{
+    Func<Task> fn = () => GetDataAsync(); // GetDataAsync returns Task<string>
+    await fn();
+    // The string result is silently discarded - no compiler warning!
+}
+
+async Task<string> GetDataAsync()
+{
+    return await httpClient.GetStringAsync("https://example.com");
+}
+```
+
+This is dangerous because the developer likely intended to use the returned value. The implicit conversion hides the fact that data is being lost. To fix this issue, there are two possible solutions:
+
+1. Change the delegate type to match the return type:
+
+```
+Func<Task<string>> fn = () => GetDataAsync();
+var result = await fn();
+```
+
+2. If you truly don't need the result, make it explicit by discarding:
+
+```
+Func<Task> fn = async () => { _ = await GetDataAsync(); };
+```
+
+## FAQ
+
+### What is the difference between AsyncFixer05 and AsyncFixer06?
+
+Both rules detect task type mismatches, but they address different problems:
+
+| Aspect | AsyncFixer05 | AsyncFixer06 |
+|--------|--------------|--------------|
+| **Pattern** | `Task<Task<T>>` (nested task) | `Task<T>` → `Task` (implicit conversion) |
+| **Problem** | Awaiting outer task doesn't wait for inner task | Result value `T` is silently discarded |
+| **Context** | `Task.Factory.StartNew`, `Task.Run` with async lambdas | Lambda/delegate assignments to `Func<Task>` |
+| **Fix** | Use `Unwrap()` or double await | Change delegate type to `Func<Task<T>>` |
+
+Example comparison:
+
+```csharp
+// AsyncFixer05 - nested task: Task<Task>
+Task task = Task.Factory.StartNew(() => DelayAsync());
+
+// AsyncFixer06 - result discarded: Task<string> converted to Task
+Func<Task> fn = () => GetDataAsync(); // GetDataAsync returns Task<string>
 ```
