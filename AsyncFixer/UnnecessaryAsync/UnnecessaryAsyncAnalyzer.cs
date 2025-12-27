@@ -230,13 +230,36 @@ namespace AsyncFixer.UnnecessaryAsync
                 //     Task<int> Bar() => await Foo();
                 // But the 'fixed' version doesn't:
                 //     Task<int> Bar => Foo();    // Error!
-                var fixedExpressionValueType = context.SemanticModel.GetTypeInfo(fixedExpression);
-                var methodReturnType = context.SemanticModel.GetTypeInfo(node.ReturnType);
+                var fixedExpressionType = context.SemanticModel.GetTypeInfo(fixedExpression).Type;
+                if (fixedExpressionType == null)
+                {
+                    return false;
+                }
 
-                // Compare by name instead of by type, else we dont allow stuff compatible
-                // types like Task and Task<T> (and we already checked for covariance beforehand). 
-                return fixedExpressionValueType.Type.Name == methodReturnType.Type.Name
-                        || (fixedExpressionValueType.Type.IsTask() && node.ReturnsVoid());
+                ITypeSymbol desiredReturnType;
+                if (node.ReturnsVoid())
+                {
+                    // The fixer changes `async void` to `Task`.
+                    desiredReturnType = context.SemanticModel.Compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
+                    if (desiredReturnType == null)
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    desiredReturnType = context.SemanticModel.GetTypeInfo(node.ReturnType).Type;
+                    if (desiredReturnType == null)
+                    {
+                        return false;
+                    }
+                }
+
+                // Only report when removing await/async would still compile.
+                // This correctly allows `Task<T>` -> `Task` (inheritance), but disallows
+                // `ValueTask<T>` -> `ValueTask` (no implicit conversion).
+                var conversion = context.SemanticModel.Compilation.ClassifyConversion(fixedExpressionType, desiredReturnType);
+                return conversion.Exists && conversion.IsImplicit;
             }
         }
 

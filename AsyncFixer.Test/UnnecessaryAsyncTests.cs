@@ -943,6 +943,62 @@ class Program
         }
 
         [Fact]
+        public void NoWarn_ValueTaskOfUnitToValueTask()
+        {
+            // No diagnostics expected to show up.
+            // This pattern is sometimes used to "discard" a Unit result, e.g. Mediator's Unit.
+            // Removing async/await would require an implicit conversion from ValueTask<Unit> to ValueTask,
+            // which does not exist.
+            var test = @"
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Mediator
+{
+    public readonly struct Unit { }
+}
+
+public interface ISender
+{
+    ValueTask<Mediator.Unit> Send(object request, CancellationToken cancellationToken);
+}
+
+public sealed class Program
+{
+    public async ValueTask EditStorageAsync(ISender sender, object command, CancellationToken cancellationToken) =>
+        await sender.Send(command, cancellationToken);
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact]
+        public void NoWarn_AsyncVoidAwaitingValueTask()
+        {
+            // No diagnostics expected to show up.
+            // The fixer changes `async void` to `Task`, but `ValueTask` is not implicitly convertible to `Task`.
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+public sealed class Program
+{
+    private static async ValueTask WorkAsync()
+    {
+        await Task.Delay(1);
+    }
+
+    public static async void FireAndForget()
+    {
+        await WorkAsync();
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        [Fact]
         public Task NoWarn_AwaitForEach()
         {
             //No diagnostics expected to show up
