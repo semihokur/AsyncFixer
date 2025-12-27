@@ -516,6 +516,45 @@ class Program
             VerifyCSharpDiagnostic(test, expected);
         }
 
+        /// <summary>
+        /// Fix only the blocking call inside method arguments, not the outer method call (GitHub issue #37)
+        /// </summary>
+        [Fact]
+        public void Fix_BlockingCallAsMethodArgument()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        StreamReader reader = null;
+        Console.WriteLine(reader.ReadToEnd());
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.BlockingCallInsideAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        StreamReader reader = null;
+        Console.WriteLine(await reader.ReadToEndAsync());
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new BlockingCallInsideAsyncFixer();

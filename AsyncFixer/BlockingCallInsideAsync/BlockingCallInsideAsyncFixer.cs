@@ -36,7 +36,9 @@ namespace AsyncFixer.BlockingCallInsideAsync
             var diagnostic = context.Diagnostics.First();
             var diagnosticSpan = diagnostic.Location.SourceSpan;
 
-            var node = root.FindNode(diagnosticSpan);
+            // Use getInnermostNodeForTie: true to ensure we get the most specific node
+            // when the span exactly matches multiple nested nodes
+            var node = root.FindNode(diagnosticSpan, getInnermostNodeForTie: true);
 
             var memberAccess = node.FirstAncestorOrSelf<MemberAccessExpressionSyntax>();
             if (memberAccess != null && memberAccess.Name.Identifier.ValueText.Equals("Result"))
@@ -50,7 +52,29 @@ namespace AsyncFixer.BlockingCallInsideAsync
                 return;
             }
 
+            // Find the invocation that exactly matches the diagnostic span.
+            // This is important for Fix All scenarios where nested invocations exist
+            // (e.g., Assert.AreEqual(1, dbContext.Person.Count()) - we want Count(), not Assert.AreEqual)
             var invocation = node.FirstAncestorOrSelf<InvocationExpressionSyntax>();
+
+            // Ensure we have the correct invocation by checking the span matches
+            while (invocation != null && invocation.Span != diagnosticSpan)
+            {
+                // If this invocation's span doesn't match, check if there's a nested one that does
+                var nestedInvocation = invocation.DescendantNodes()
+                    .OfType<InvocationExpressionSyntax>()
+                    .FirstOrDefault(inv => inv.Span == diagnosticSpan);
+
+                if (nestedInvocation != null)
+                {
+                    invocation = nestedInvocation;
+                    break;
+                }
+
+                // No nested match found, keep the current invocation
+                break;
+            }
+
             if (invocation != null)
             {
                 context.RegisterCodeFix(
