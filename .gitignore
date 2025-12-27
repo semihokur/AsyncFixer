@@ -358,3 +358,6 @@ MigrationBackup/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Claude
+.claude/*
