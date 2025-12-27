@@ -1033,6 +1033,41 @@ internal class Program
         }
 
         [Fact]
+        public Task NoWarn_AwaitForEachFollowedByAwait()
+        {
+            // Regression: await foreach followed by a single await at the end
+            // should NOT be flagged as unnecessary async
+
+            var test = @"
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+internal class Program
+{
+    public async Task ProcessAsync(CancellationToken cancellationToken)
+    {
+        await foreach (var entry in GetFilesAsync(cancellationToken))
+        {
+            // do something
+        }
+
+        await SaveChangesAsync(cancellationToken);
+    }
+
+    static async IAsyncEnumerable<int> GetFilesAsync(CancellationToken ct)
+    {
+        yield return 1;
+        await Task.Delay(1, ct);
+    }
+
+    static Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
+}";
+            return Verify.VerifyAsync(test);
+        }
+
+        [Fact]
         public Task AwaitForEachUnderLambda()
         {
             var test = @"

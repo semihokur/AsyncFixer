@@ -92,7 +92,7 @@ namespace AsyncFixer.UnnecessaryAsync
             }
 
             var awaitForEachStatements = node.DescendantNodes().OfType<ForEachStatementSyntax>()
-                .Where(a => a.AwaitKeyword != null  && a.FirstAncestorOrSelfUnderGivenNode<LambdaExpressionSyntax>(node) == null).ToList();
+                .Where(a => a.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword) && a.FirstAncestorOrSelfUnderGivenNode<LambdaExpressionSyntax>(node) == null).ToList();
 
             if (awaitForEachStatements.Any())
             {
