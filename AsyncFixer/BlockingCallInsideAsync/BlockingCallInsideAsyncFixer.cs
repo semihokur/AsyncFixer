@@ -133,7 +133,13 @@ namespace AsyncFixer.BlockingCallInsideAsync
                 }
             }
 
-            var newNode = MakeItAwaited(newExpression, oldNode);
+            ExpressionSyntax newNode = MakeItAwaited(newExpression, oldNode);
+
+            // obj.First().Id -> (await obj.FirstAsync()).Id
+            if (oldNode.Parent.IsKind(SyntaxKind.SimpleMemberAccessExpression))
+            {
+                newNode = SyntaxFactory.ParenthesizedExpression(newNode);
+            }
 
             var root = await document.GetSyntaxRootAsync().ConfigureAwait(false);
             var newRoot = root.ReplaceNode(oldNode, newNode);

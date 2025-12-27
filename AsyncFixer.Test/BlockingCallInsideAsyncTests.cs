@@ -449,6 +449,45 @@ class Program
         }
 
         /// <summary>
+        /// Wrap await in parentheses when followed by member access (GitHub issue #38)
+        /// </summary>
+        [Fact]
+        public void Fix_ParenthesesWhenFollowedByMemberAccess()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        StreamReader reader = null;
+        var x = reader.ReadToEnd().Length;
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.BlockingCallInsideAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        StreamReader reader = null;
+        var x = (await reader.ReadToEndAsync()).Length;
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
         /// Still warn for blocking calls in async local functions
         /// </summary>
         [Fact]
