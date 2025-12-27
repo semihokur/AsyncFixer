@@ -555,6 +555,141 @@ class Program
             VerifyCSharpFix(test, fixtest);
         }
 
+        /// <summary>
+        /// No warning for Task.Result after Task.WhenAll on the same collection
+        /// </summary>
+        [Fact]
+        public void NoWarn_TaskResultAfterWhenAll()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        Task<int>[] tasks = new[] { Task.Run(() => 1), Task.Run(() => 2) };
+        await Task.WhenAll(tasks);
+        foreach (var task in tasks)
+        {
+            Console.WriteLine(task.Result);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning for Task.Result after Task.WhenAll with ConfigureAwait
+        /// </summary>
+        [Fact]
+        public void NoWarn_TaskResultAfterWhenAllWithConfigureAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        Task<int>[] tasks = new[] { Task.Run(() => 1), Task.Run(() => 2) };
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        foreach (var task in tasks)
+        {
+            Console.WriteLine(task.Result);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// Still warn for Task.Result when Task.WhenAll is on a different collection
+        /// </summary>
+        [Fact]
+        public void Warn_TaskResultWhenWhenAllOnDifferentCollection()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        Task<int>[] tasks1 = new[] { Task.Run(() => 1) };
+        Task<int>[] tasks2 = new[] { Task.Run(() => 2) };
+        await Task.WhenAll(tasks1);
+        foreach (var task in tasks2)
+        {
+            Console.WriteLine(task.Result);
+        }
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.BlockingCallInsideAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// Still warn for Task.Result when WhenAll is after the foreach (not awaited before)
+        /// </summary>
+        [Fact]
+        public void Warn_TaskResultWhenWhenAllIsAfterForeach()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        Task<int>[] tasks = new[] { Task.Run(() => 1) };
+        foreach (var task in tasks)
+        {
+            Console.WriteLine(task.Result);
+        }
+        await Task.WhenAll(tasks);
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.BlockingCallInsideAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// Still warn for Task.Result when WhenAll is not awaited
+        /// </summary>
+        [Fact]
+        public void Warn_TaskResultWhenWhenAllNotAwaited()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        Task<int>[] tasks = new[] { Task.Run(() => 1) };
+        var whenAllTask = Task.WhenAll(tasks);
+        foreach (var task in tasks)
+        {
+            Console.WriteLine(task.Result);
+        }
+        await whenAllTask;
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.BlockingCallInsideAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new BlockingCallInsideAsyncFixer();

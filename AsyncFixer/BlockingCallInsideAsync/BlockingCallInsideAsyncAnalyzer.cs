@@ -174,8 +174,98 @@ namespace AsyncFixer.BlockingCallInsideAsync
                 return;
             }
 
+            // Check if the task is a foreach iteration variable from a collection that was awaited via Task.WhenAll
+            if (IsTaskFromAwaitedWhenAll(context.SemanticModel, method, memberAccess.Expression))
+            {
+                return;
+            }
+
             var diagnostic = Diagnostic.Create(Rule, memberAccess.GetLocation(), "await", name);
             context.ReportDiagnostic(diagnostic);
+        }
+
+        /// <summary>
+        /// Checks if the given task expression is an iteration variable from a foreach loop
+        /// where the collection was previously awaited via Task.WhenAll.
+        /// </summary>
+        private static bool IsTaskFromAwaitedWhenAll(SemanticModel semanticModel, MethodDeclarationSyntax method, ExpressionSyntax taskExpression)
+        {
+            // Get the symbol for the task expression
+            var taskSymbol = semanticModel.GetSymbolInfo(taskExpression).Symbol as ILocalSymbol;
+            if (taskSymbol == null)
+            {
+                return false;
+            }
+
+            // Check if this symbol is declared as a foreach iteration variable
+            var declaringSyntax = taskSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+            if (declaringSyntax == null)
+            {
+                return false;
+            }
+
+            // The declaring syntax for a foreach variable is the ForEachStatementSyntax itself
+            var foreachStatement = declaringSyntax.FirstAncestorOrSelf<ForEachStatementSyntax>();
+            if (foreachStatement == null)
+            {
+                return false;
+            }
+
+            // Get the collection being iterated
+            var collectionExpression = foreachStatement.Expression;
+            var collectionSymbol = semanticModel.GetSymbolInfo(collectionExpression).Symbol;
+            if (collectionSymbol == null)
+            {
+                return false;
+            }
+
+            // Now check if this collection was passed to an awaited Task.WhenAll before the foreach
+            return IsCollectionAwaitedViaWhenAll(semanticModel, method, foreachStatement, collectionSymbol);
+        }
+
+        /// <summary>
+        /// Checks if the given collection symbol was passed to Task.WhenAll and awaited
+        /// before the specified foreach statement.
+        /// </summary>
+        private static bool IsCollectionAwaitedViaWhenAll(SemanticModel semanticModel, MethodDeclarationSyntax method, ForEachStatementSyntax foreachStatement, ISymbol collectionSymbol)
+        {
+            // Find all await expressions in the method that occur before the foreach
+            var foreachSpanStart = foreachStatement.SpanStart;
+
+            foreach (var awaitExpr in method.DescendantNodes().OfType<AwaitExpressionSyntax>())
+            {
+                // Only consider awaits that occur before the foreach
+                if (awaitExpr.SpanStart >= foreachSpanStart)
+                {
+                    continue;
+                }
+
+                // Check if this await is on a Task.WhenAll invocation
+                var awaitedExpression = Helpers.RemoveConfigureAwait(awaitExpr.Expression);
+
+                if (!(awaitedExpression is InvocationExpressionSyntax invocation))
+                {
+                    continue;
+                }
+
+                var invokedMethod = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                if (invokedMethod?.ContainingType?.Name != "Task" || invokedMethod.Name != "WhenAll")
+                {
+                    continue;
+                }
+
+                // Check if our collection is passed as an argument to WhenAll
+                foreach (var argument in invocation.ArgumentList.Arguments)
+                {
+                    var argumentSymbol = semanticModel.GetSymbolInfo(argument.Expression).Symbol;
+                    if (SymbolEqualityComparer.Default.Equals(argumentSymbol, collectionSymbol))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static string DetectSynchronousUsages(Location location, IMethodSymbol methodCallSymbol, ITypeSymbol receiverTypeCandidate, SemanticModel semanticModel)
