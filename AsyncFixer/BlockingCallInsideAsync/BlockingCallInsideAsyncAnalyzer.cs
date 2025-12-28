@@ -368,7 +368,7 @@ namespace AsyncFixer.BlockingCallInsideAsync
 
             for (var i = 0; i < oldParams.Length; i++)
             {
-                if (!Equals(newParams[i].Type, oldParams[i].Type))
+                if (!SymbolEqualityComparer.Default.Equals(newParams[i].Type, oldParams[i].Type))
                 {
                     return false;
                 }

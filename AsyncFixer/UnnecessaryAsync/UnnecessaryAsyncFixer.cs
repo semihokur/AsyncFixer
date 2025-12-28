@@ -116,7 +116,7 @@ namespace AsyncFixer.UnnecessaryAsync
             MethodDeclarationSyntax newMethodDecl = methodDecl.ReplaceAll(pairs);
 
             // Remove async keyword
-            var asyncModifier = newMethodDecl.Modifiers.First(a => a.Kind() == SyntaxKind.AsyncKeyword);
+            var asyncModifier = newMethodDecl.Modifiers.First(a => a.IsKind(SyntaxKind.AsyncKeyword));
             newMethodDecl = asyncModifier.HasLeadingTrivia
                 ? newMethodDecl.WithModifiers(newMethodDecl.Modifiers.Remove(asyncModifier))
                     .WithLeadingTrivia(asyncModifier.LeadingTrivia)

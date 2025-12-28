@@ -96,7 +96,7 @@ namespace AsyncFixer.BlockingCallInsideAsync
             ExpressionSyntax newNode = MakeItAwaited(taskVariable, oldNode);
 
             // t.Result.ToString() -> (await t).ToString()
-            if (oldNode.Parent.Kind() == SyntaxKind.SimpleMemberAccessExpression)
+            if (oldNode.Parent.IsKind(SyntaxKind.SimpleMemberAccessExpression))
             {
                 newNode = SyntaxFactory.ParenthesizedExpression(newNode);
             }

@@ -121,7 +121,7 @@
     <value />
   </data>
   <data name="AsyncCallInsideUsingBlockMessageFormat" xml:space="preserve">
-    <value>{0}, a disposable object, is used in a fire-and-forget async call in an using block, causing potential exception error or wrong result.</value>
+    <value>'{0}' is used in a fire-and-forget async call inside a using block</value>
   </data>
   <data name="AsyncCallInsideUsingBlockTitle" xml:space="preserve">
     <value>Fire-and-forget async call inside a using block</value>
@@ -148,7 +148,7 @@
     <value>Insert Async Call</value>
   </data>
   <data name="BlockingCallInsideAsyncMessageFormat" xml:space="preserve">
-    <value>{0} should be used instead of {1}.</value>
+    <value>{0} should be used instead of {1}</value>
   </data>
   <data name="BlockingCallInsideAsyncTitle" xml:space="preserve">
     <value>Long-running or blocking operations inside an async method</value>
@@ -160,7 +160,7 @@
     <value>Downcasting from a nested task (Task&lt;Task&gt;) to a outer task or awaiting a nested task is occurred. UnWrap() is suggested.</value>
   </data>
   <data name="NestedTaskToOuterTaskTitle" xml:space="preserve">
-    <value>Downcasting from a nested task to an outer task.</value>
+    <value>Downcasting from a nested task to an outer task</value>
   </data>
   <data name="UnnecessaryAsyncDescription" xml:space="preserve">
     <value>Await is the last statement of the method so you can return Task and await in the caller method.</value>
@@ -169,7 +169,7 @@
     <value>Remove async/await</value>
   </data>
   <data name="UnnecessaryAsyncMessageFormat" xml:space="preserve">
-    <value>The method '{0}' does not need to use async/await.</value>
+    <value>The method '{0}' does not need to use async/await</value>
   </data>
   <data name="UnnecessaryAsyncTitle" xml:space="preserve">
     <value>Unnecessary async/await usage</value>

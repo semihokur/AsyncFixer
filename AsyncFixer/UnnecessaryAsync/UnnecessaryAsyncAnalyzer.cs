@@ -68,7 +68,7 @@ namespace AsyncFixer.UnnecessaryAsync
 
                 if (sibling is LocalDeclarationStatementSyntax declaration)
                 {
-                    if (declaration.UsingKeyword.Kind() == SyntaxKind.UsingKeyword)
+                    if (declaration.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
                     {
                         // Variable declaration with using,
                         // which will be in scope in the await statement (as in the above example)
