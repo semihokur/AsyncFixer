@@ -134,10 +134,12 @@ namespace AsyncFixer.BlockingCallInsideAsync
             }
 
             var invokeMethod = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-            if (invokeMethod == null || invokeMethod.Name == "Invoke" || invokeMethod.Name == "Dispose")
+            if (invokeMethod == null || invokeMethod.Name == "Invoke" || invokeMethod.Name == "Dispose" || invokeMethod.Name == "Cancel")
             {
                 // Do not suggest InvokeAsync which is common with old asynchrony patterns.
                 // Do not also suggest DisposeAsync which is rarely needed as most of DisposeAsync implementations are not truly asynchronous.
+                // Do not suggest CancelAsync which is only available in .NET 8+ and Cancel() is perfectly fine in most scenarios
+                // as it's a quick synchronous operation that just sets a flag and invokes registered callbacks.
                 return;
             }
 

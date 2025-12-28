@@ -712,6 +712,57 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        /// <summary>
+        /// No warning for CancellationTokenSource.Cancel() - CancelAsync is .NET 8+ only
+        /// and Cancel() is a quick synchronous operation that's perfectly fine in async methods.
+        /// </summary>
+        [Fact]
+        public void NoWarn_CancellationTokenSourceCancel()
+        {
+            var test = @"
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        var cts = new CancellationTokenSource();
+        await Task.Delay(100);
+        cts.Cancel();
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning for CancellationTokenSource.Cancel() inside event handler lambda
+        /// </summary>
+        [Fact]
+        public void NoWarn_CancellationTokenSourceCancelInEventHandler()
+        {
+            var test = @"
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+class Program
+{
+    public static event Action OnShutdown;
+
+    async Task foo()
+    {
+        var cts = new CancellationTokenSource();
+        OnShutdown += () => cts.Cancel();
+        await Task.Delay(100);
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new BlockingCallInsideAsyncFixer();
