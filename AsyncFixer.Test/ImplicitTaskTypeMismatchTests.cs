@@ -381,6 +381,62 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        /// <summary>
+        /// No warning when lambda is passed to Assert.ThrowsAsync - result is intentionally discarded
+        /// </summary>
+        [Fact]
+        public void NoWarn_AssertThrowsAsync()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Assert
+{
+    public static Task<T> ThrowsAsync<T>(Func<Task> action) where T : Exception => throw null;
+}
+
+class Program
+{
+    Task<int> MethodThatThrows() => throw new InvalidOperationException();
+
+    async Task Test()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => MethodThatThrows());
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning when lambda is passed to Assert.ThrowsExceptionAsync - result is intentionally discarded
+        /// </summary>
+        [Fact]
+        public void NoWarn_AssertThrowsExceptionAsync()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Assert
+{
+    public static Task<T> ThrowsExceptionAsync<T>(Func<Task> action) where T : Exception => throw null;
+}
+
+class Program
+{
+    Task<int> MethodThatThrows() => throw new InvalidOperationException();
+
+    async Task Test()
+    {
+        await Assert.ThrowsExceptionAsync<InvalidOperationException>(() => MethodThatThrows());
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
         protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
         {
             return new ImplicitTaskTypeMismatchAnalyzer();

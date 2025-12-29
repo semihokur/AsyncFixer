@@ -23,7 +23,7 @@ namespace AsyncFixer.ImplicitTaskTypeMismatch
             isEnabledByDefault: true,
             description: Description,
             customTags: WellKnownDiagnosticTags.Telemetry,
-            helpLinkUri: Constants.RepositoryLink);
+            helpLinkUri: Constants.AsyncFixer06HelpLink);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
@@ -89,6 +89,14 @@ namespace AsyncFixer.ImplicitTaskTypeMismatch
                 return;
             }
 
+            // Skip if the lambda is passed to an assertion method that expects exceptions
+            // (e.g., Assert.ThrowsAsync, Assert.ThrowsExceptionAsync)
+            // In these cases, discarding the Task<T> result is intentional.
+            if (IsArgumentToThrowsMethod(lambda))
+            {
+                return;
+            }
+
             var expectedReturnType = delegateType.DelegateInvokeMethod.ReturnType;
 
             // Check if the expected return type is Task (non-generic)
@@ -134,6 +142,42 @@ namespace AsyncFixer.ImplicitTaskTypeMismatch
             // We have a mismatch: lambda returns Task<T> but delegate expects Task
             var diagnostic = Diagnostic.Create(Rule, lambda.GetLocation());
             context.ReportDiagnostic(diagnostic);
+        }
+
+        /// <summary>
+        /// Checks if the lambda is passed as an argument to a method whose name contains "Throws".
+        /// This handles patterns like Assert.ThrowsAsync, Assert.ThrowsExceptionAsync, etc.
+        /// where discarding the Task&lt;T&gt; result is intentional.
+        /// </summary>
+        private static bool IsArgumentToThrowsMethod(SyntaxNode lambda)
+        {
+            // Check if the lambda is inside an argument
+            var argument = lambda.FirstAncestorOrSelf<ArgumentSyntax>();
+            if (argument == null)
+            {
+                return false;
+            }
+
+            // Check if the argument is part of an invocation
+            var invocation = argument.FirstAncestorOrSelf<InvocationExpressionSyntax>();
+            if (invocation == null)
+            {
+                return false;
+            }
+
+            // Get the method name being invoked
+            string methodName = null;
+            if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+            {
+                methodName = memberAccess.Name.Identifier.ValueText;
+            }
+            else if (invocation.Expression is IdentifierNameSyntax identifier)
+            {
+                methodName = identifier.Identifier.ValueText;
+            }
+
+            // Check if the method name contains "Throws" (covers ThrowsAsync, ThrowsExceptionAsync, etc.)
+            return methodName != null && methodName.Contains("Throws");
         }
 
         private static bool IsNonGenericTask(ITypeSymbol type)
