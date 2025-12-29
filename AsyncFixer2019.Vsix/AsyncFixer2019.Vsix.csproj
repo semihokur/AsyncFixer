@@ -5,7 +5,7 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <RootNamespace>AsyncFixer</RootNamespace>
-    <AssemblyName>AsyncFixer.VS2022</AssemblyName>
+    <AssemblyName>AsyncFixer.VS2019</AssemblyName>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -18,16 +18,9 @@
     <VSSDKTargetPlatformRegRootSuffix>Roslyn</VSSDKTargetPlatformRegRootSuffix>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(MSBuildRuntimeType)' != 'Core'">
-    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.14.2120">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="16.11.35" PrivateAssets="all" />
   </ItemGroup>
-
-  <Target Name="_AsyncFixerVsixBuildNotice" BeforeTargets="Build" Condition="'$(MSBuildRuntimeType)' == 'Core'">
-    <Message Importance="high" Text="VSIX packaging is skipped when building with .NET (dotnet) MSBuild. To produce the .vsix, build this project with Visual Studio MSBuild (Developer Command Prompt for VS / msbuild.exe)." />
-  </Target>
 
   <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
 
@@ -42,7 +35,11 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="LICENSE">
+    <Content Include="preview.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <IncludeInVSIX>true</IncludeInVSIX>
+    </Content>
+    <Content Include="LICENSE.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>

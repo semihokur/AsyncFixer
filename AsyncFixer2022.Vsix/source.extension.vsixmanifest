@@ -1,24 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="AsyncFixer2022.edab5fce-e3aa-4fea-9d60-a07bc11d493b" Version="1.6.0" Language="en-US" Publisher="Semih Okur"/>
-    <DisplayName>AsyncFixer for Visual Studio 2022</DisplayName>
-    <Description xml:space="preserve">Advanced async/await Diagnostics and CodeFixes for C#.</Description>
-	<MoreInfo>http://www.asyncfixer.com</MoreInfo>
-    <License>LICENSE.txt</License>
+    <Identity Id="AsyncFixer2022.edab5fce-e3aa-4fea-9d60-a07bc11d493b" Version="2.1.0" Language="en-US" Publisher="Semih Okur"/>
+    <DisplayName>AsyncFixer for Visual Studio 2022-2026</DisplayName>
+    <Description xml:space="preserve">AsyncFixer detects common async/await anti-patterns and, when possible, offers automatic fixes. It currently reports 6 categories of async/await misuse and provides code fixes for 3 of them. It has been validated against thousands of open-source C# projects and is designed to handle tricky real-world edge cases. Tool-friendly diagnostics support AI-assisted workflows even when a built-in code fix is not available.</Description>
+	<MoreInfo>https://github.com/semihokur/AsyncFixer</MoreInfo>
+    <License>LICENSE</License>
     <ReleaseNotes>https://github.com/semihokur/AsyncFixer/blob/main/CHANGELOG.md</ReleaseNotes>
     <Icon>icon.png</Icon>
-    <PreviewImage>preview.png</PreviewImage>
-    <Tags>asyncfixer analyzers async/await asynchronous concurrency diagnostics codefix roslyn codeanalysis async await</Tags>
+    <Tags>asyncfixer csharp dotnet roslyn analyzer analyzers codefix codefixes codeanalysis async await asyncawait asynchronous diagnostics</Tags>
   </Metadata>
   <Installation>
-    <InstallationTarget Version="[17.0,18.0)" Id="Microsoft.VisualStudio.Community">
+    <InstallationTarget Version="[17.0,19.0)" Id="Microsoft.VisualStudio.Community">
       <ProductArchitecture>amd64</ProductArchitecture>
     </InstallationTarget>
-    <InstallationTarget Version="[17.0,18.0)" Id="Microsoft.VisualStudio.Pro">
+    <InstallationTarget Version="[17.0,19.0)" Id="Microsoft.VisualStudio.Pro">
       <ProductArchitecture>amd64</ProductArchitecture>
     </InstallationTarget>
-    <InstallationTarget Version="[17.0,18.0)" Id="Microsoft.VisualStudio.Enterprise">
+    <InstallationTarget Version="[17.0,19.0)" Id="Microsoft.VisualStudio.Enterprise">
       <ProductArchitecture>amd64</ProductArchitecture>
     </InstallationTarget>
   </Installation>
@@ -30,7 +29,7 @@
     <Asset Type="Microsoft.VisualStudio.Analyzer" d:Source="Project" d:ProjectName="AsyncFixer" Path="|AsyncFixer|"/>
   </Assets>
   <Prerequisites>
-    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[15.0,)" DisplayName="Visual Studio core editor" />
-    <Prerequisite Id="Microsoft.VisualStudio.Component.Roslyn.LanguageServices" Version="[15.0,)" DisplayName="Roslyn Language Services" />
+    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[17.0,19.0)" DisplayName="Visual Studio core editor" />
+    <Prerequisite Id="Microsoft.VisualStudio.Component.Roslyn.LanguageServices" Version="[17.0,19.0)" DisplayName="Roslyn Language Services" />
   </Prerequisites>
 </PackageManifest>

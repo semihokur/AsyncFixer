@@ -10,11 +10,11 @@
 
   <PropertyGroup>
     <PackageId>AsyncFixer</PackageId>
-    <PackageVersion>2.0.0</PackageVersion>
+    <PackageVersion>2.1.0</PackageVersion>
     <Authors>Semih Okur</Authors>
-    <Title>AsyncFixer: Advanced async/await Diagnostics and CodeFixes for C#</Title>
+    <Title>AsyncFixer: Async/Await Analyzers and Code Fixes</Title>
     <Description>
-	    AsyncFixer helps developers in finding and correcting common async/await misuses (i.e., anti-patterns). It currently detects 6 common kinds of async/await misuses and fixes 3 of them via program transformations. AsyncFixer has been tested with thousands of open-source C# projects and successfully handles many corner cases.
+      AsyncFixer detects common async/await anti-patterns and, when possible, offers automatic fixes. It currently reports 6 categories of async/await misuse and provides code fixes for 3 of them. It has been validated against thousands of open-source C# projects and is designed to handle tricky real-world edge cases. Tool-friendly diagnostics support AI-assisted workflows even when a built-in code fix is not available.
     </Description>
 	<PackageReleaseNotes>https://github.com/semihokur/AsyncFixer/blob/main/CHANGELOG.md</PackageReleaseNotes> 
 	<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -24,7 +24,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/semihokur/AsyncFixer</RepositoryUrl> 
     <Copyright>Copyright (c) AsyncFixer 2015-2026</Copyright>
-    <PackageTags>asyncfixer analyzers async/await asynchronous concurrency diagnostics codefix roslyn codeanalysis async await</PackageTags>
+    <PackageTags>asyncfixer csharp dotnet roslyn analyzer analyzers codefix codefixes codeanalysis async await asyncawait asynchronous diagnostics</PackageTags>
     <NoPackageAnalysis>false</NoPackageAnalysis>
 	<DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
@@ -53,7 +53,7 @@
     <None Update="tools\*.ps1" CopyToOutputDirectory="Always" Pack="true" PackagePath="" />
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
 	  <None Include="$(OutputPath)\$(AssemblyName).pdb" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-    <None Include="..\AsyncFixer.Vsix\icon.png">
+    <None Include="..\AsyncFixer2022.Vsix\icon.png">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>

@@ -3,7 +3,7 @@
 [![NuGet](https://img.shields.io/nuget/v/AsyncFixer.svg)](https://www.nuget.org/packages/AsyncFixer)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/AsyncFixer.svg)](https://www.nuget.org/packages/AsyncFixer)
 
-AsyncFixer helps developers in finding and correcting common `async/await` *misuses* (i.e., anti-patterns). It currently detects 6 common kinds of async/await misuses and fixes 3 of them via code fixes. AsyncFixer has been tested with thousands of open-source C# projects and successfully handles many corner cases. It is also one of the most common analyzers used in C# projects from Microsoft.
+AsyncFixer helps developers find and correct common `async/await` misuses (anti-patterns) and, when possible, offers automatic fixes. It currently reports 6 categories of async/await misuse and provides code fixes for 3 of them. It has been validated against thousands of open-source C# projects and is designed to handle tricky real-world edge cases. Tool-friendly diagnostics support AI-assisted workflows even when a built-in code fix is not available. It is a popular open-source Roslyn analyzer for improving async/await code quality.
 
 ## Installation
 
@@ -339,8 +339,8 @@ dotnet_diagnostic.AsyncFixer01.severity = none
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request on [GitHub](https://github.com/semihokur/AsyncFixer).
+Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).

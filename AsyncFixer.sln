@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncFixer", "AsyncFixer\As
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncFixer.Test", "AsyncFixer.Test\AsyncFixer.Test.csproj", "{26D7DC44-9AD8-4669-9387-4E8B8456EB69}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncFixer.Vsix", "AsyncFixer.Vsix\AsyncFixer.Vsix.csproj", "{CA1DE4CD-9D17-4F1E-A043-F259B92966B1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncFixer2019.Vsix", "AsyncFixer2019.Vsix\AsyncFixer2019.Vsix.csproj", "{CA1DE4CD-9D17-4F1E-A043-F259B92966B1}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncFixer.Samples", "AsyncFixer.Samples\AsyncFixer.Samples.csproj", "{7BBD9BF8-A30B-4C1B-BBF7-4B5668E9826D}"
 EndProject
