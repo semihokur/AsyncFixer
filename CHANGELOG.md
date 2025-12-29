@@ -1,5 +1,13 @@
 # Release History
 
+## 2.1.0 (2025-12)
+
+- **AsyncFixer04**: Detect fire-and-forget async calls in `using var` declarations (C# 8.0+) and warn when a task is returned from a using scope without being awaited. The disposable resource will be disposed before the returned task completes. ([#13](https://github.com/semihokur/AsyncFixer/issues/13))
+- **AsyncFixer04**: Fix false positive when task is assigned to a variable and awaited later within the same using block (e.g., `await Task.WhenAny(task, ...)`).
+- **AsyncFixer06**: Fix false positive for `Assert.ThrowsAsync` and similar assertion methods where discarding the `Task<T>` result is intentional.
+- **AsyncFixer03**: Add test coverage for event handlers using `Action<T>` delegates. ([#16](https://github.com/semihokur/AsyncFixer/issues/16))
+- Improve diagnostic messages and README for better AI assistant compatibility.
+
 ## 2.0.0 (2025-12)
 
 - **AsyncFixer06**: New analyzer to detect implicit `Task<T>` to `Task` conversion in non-async lambdas. Unlike async lambdas which produce compiler error CS8031, non-async lambdas silently discard the result. ([#26](https://github.com/semihokur/AsyncFixer/issues/26))
@@ -13,7 +21,7 @@
 - **AsyncFixer05**: Detect nested `Task` in return statements. ([#27](https://github.com/semihokur/AsyncFixer/issues/27))
 - **Code Fix**: Correct nested invocation handling in Fix All operations. ([#37](https://github.com/semihokur/AsyncFixer/issues/37))
 - **Code Fix**: Add parentheses when async conversion is followed by member access. ([#38](https://github.com/semihokur/AsyncFixer/issues/38))
-- Upgrade `Microsoft.CodeAnalysis` to v5.0.0.
+- Upgrade `Microsoft.CodeAnalysis` to v4.8.0.
 
 ## 1.6.0 (2022-05)
 - 01.UnnecessaryAsync: Do not warn when the await expressions are in the scope of a using declaration.

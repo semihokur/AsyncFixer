@@ -35,6 +35,7 @@ namespace AsyncFixer.AsyncCallInsideUsingBlock
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
             context.RegisterSyntaxNodeAction(AnalyzeUsingBlock, SyntaxKind.UsingStatement);
+            context.RegisterSyntaxNodeAction(AnalyzeUsingDeclaration, SyntaxKind.LocalDeclarationStatement);
         }
 
         private static string[] BlockingCalls = new string[] { "GetAwaiter", "Result", "Wait" };
@@ -90,41 +91,205 @@ namespace AsyncFixer.AsyncCallInsideUsingBlock
                     continue;
                 }
 
-                // Check whether the async call will be synchronously waited.
-                bool isInvocationWaited = false;
-
-                foreach (var parent in invocation.Ancestors())
+                // Check if the task is returned without being awaited - this is always problematic
+                // for using blocks since the disposable will be disposed on method exit
+                var returnStatement = invocation.FirstAncestorOrSelfUnderGivenNode<ReturnStatementSyntax>(node);
+                if (returnStatement != null)
                 {
-                    var parentMemberAccess = parent as MemberAccessExpressionSyntax;
-                    if (parentMemberAccess?.Name != null)
-                    {
-                        if (BlockingCalls.Any(a => a.Equals(parentMemberAccess.Name.Identifier.ValueText, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            isInvocationWaited = true;
-                            break;
-                        }
-                    }
-
-                    var parentInvocation = parent as InvocationExpressionSyntax;
-                    if (parentInvocation != null)
-                    {
-                        var parentSymbol = context.SemanticModel.GetSymbolInfo(parentInvocation).Symbol as IMethodSymbol;
-                        if (parentSymbol?.GetAttributes().Any(a => a.AttributeClass.Name.Equals("BlockCaller")) == true)
-                        {
-                            isInvocationWaited = true;
-                            break;
-                        }
-                    }
+                    var diagnostic = Diagnostic.Create(Rule, location.GetLocation(), identifier.Value.ValueText);
+                    context.ReportDiagnostic(diagnostic);
+                    continue;
                 }
 
-                if (isInvocationWaited)
+                // Check whether the async call will be synchronously waited.
+                if (IsInvocationBlocked(context, invocation))
                 {
                     continue;
                 }
 
-                var diagnostic = Diagnostic.Create(Rule, location.GetLocation(), identifier.Value.ValueText);
-                context.ReportDiagnostic(diagnostic);
+                var diagnostic2 = Diagnostic.Create(Rule, location.GetLocation(), identifier.Value.ValueText);
+                context.ReportDiagnostic(diagnostic2);
             }
+        }
+
+        /// <summary>
+        /// Analyzes 'using var' declarations (C# 8.0+) for fire-and-forget async calls.
+        /// This handles patterns like:
+        ///   using var stream = new FileStream(...);
+        ///   return stream.CopyToAsync(destination); // Problem: stream disposed before task completes
+        /// </summary>
+        private void AnalyzeUsingDeclaration(SyntaxNodeAnalysisContext context)
+        {
+            var localDeclaration = (LocalDeclarationStatementSyntax)context.Node;
+
+            // Check if this is a 'using' declaration (using var x = ...)
+            if (!localDeclaration.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
+            {
+                return;
+            }
+
+            var declarator = localDeclaration.Declaration.Variables.FirstOrDefault();
+            var identifier = declarator?.Identifier;
+
+            if (identifier == null)
+            {
+                return;
+            }
+
+            // Find the containing block or method body where the using declaration is scoped
+            var containingBlock = localDeclaration.Parent;
+            if (containingBlock == null)
+            {
+                return;
+            }
+
+            // Get all statements after the using declaration within the same block
+            var statementsAfter = containingBlock.ChildNodes()
+                .OfType<StatementSyntax>()
+                .SkipWhile(s => s != localDeclaration)
+                .Skip(1); // Skip the using declaration itself
+
+            foreach (var statement in statementsAfter)
+            {
+                AnalyzeStatementForDisposableUsage(context, statement, identifier.Value.ValueText, containingBlock);
+            }
+        }
+
+        /// <summary>
+        /// Analyzes a statement for problematic async calls using a disposable object.
+        /// </summary>
+        private void AnalyzeStatementForDisposableUsage(SyntaxNodeAnalysisContext context, SyntaxNode scope, string disposableIdentifier, SyntaxNode containingBlock)
+        {
+            var locationsOfDisposableObjects = scope.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>()
+                .Where(a => a.Identifier.ValueText.Equals(disposableIdentifier));
+
+            foreach (var location in locationsOfDisposableObjects)
+            {
+                var invocation = location.FirstAncestorOrSelf<InvocationExpressionSyntax>();
+                if (invocation == null)
+                {
+                    continue;
+                }
+
+                var invokeMethod = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                if (invokeMethod == null || !invokeMethod.ReturnTask())
+                {
+                    continue;
+                }
+
+                var isAwaited = invocation.Ancestors().OfType<AwaitExpressionSyntax>().Any();
+                if (isAwaited)
+                {
+                    continue;
+                }
+
+                var isUnderLambda = location.FirstAncestorOrSelf<LambdaExpressionSyntax>() != null;
+                if (isUnderLambda)
+                {
+                    continue;
+                }
+
+                // Check if the task is assigned to a variable and awaited later
+                if (IsTaskAssignedAndAwaitedLaterInBlock(invocation, containingBlock))
+                {
+                    continue;
+                }
+
+                // Check if the task is returned without being awaited - this is always problematic
+                // for using declarations since the disposable will be disposed on method exit
+                var returnStatement = invocation.FirstAncestorOrSelf<ReturnStatementSyntax>();
+                if (returnStatement != null)
+                {
+                    var diagnostic = Diagnostic.Create(Rule, location.GetLocation(), disposableIdentifier);
+                    context.ReportDiagnostic(diagnostic);
+                    continue;
+                }
+
+                // Check whether the async call will be synchronously waited
+                if (IsInvocationBlocked(context, invocation))
+                {
+                    continue;
+                }
+
+                var diagnostic2 = Diagnostic.Create(Rule, location.GetLocation(), disposableIdentifier);
+                context.ReportDiagnostic(diagnostic2);
+            }
+        }
+
+        /// <summary>
+        /// Checks if the invocation is blocked by a synchronous wait call.
+        /// </summary>
+        private bool IsInvocationBlocked(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
+        {
+            foreach (var parent in invocation.Ancestors())
+            {
+                var parentMemberAccess = parent as MemberAccessExpressionSyntax;
+                if (parentMemberAccess?.Name != null)
+                {
+                    if (BlockingCalls.Any(a => a.Equals(parentMemberAccess.Name.Identifier.ValueText, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        return true;
+                    }
+                }
+
+                var parentInvocation = parent as InvocationExpressionSyntax;
+                if (parentInvocation != null)
+                {
+                    var parentSymbol = context.SemanticModel.GetSymbolInfo(parentInvocation).Symbol as IMethodSymbol;
+                    if (parentSymbol?.GetAttributes().Any(a => a.AttributeClass.Name.Equals("BlockCaller")) == true)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Checks if the task is assigned to a variable and awaited later within the containing block.
+        /// </summary>
+        private static bool IsTaskAssignedAndAwaitedLaterInBlock(InvocationExpressionSyntax invocation, SyntaxNode containingBlock)
+        {
+            string assignedVariableName = null;
+
+            var variableDeclarator = invocation.FirstAncestorOrSelf<VariableDeclaratorSyntax>();
+            if (variableDeclarator != null)
+            {
+                assignedVariableName = variableDeclarator.Identifier.ValueText;
+            }
+
+            if (assignedVariableName == null)
+            {
+                var assignment = invocation.FirstAncestorOrSelf<AssignmentExpressionSyntax>();
+                if (assignment?.Left is IdentifierNameSyntax identifier)
+                {
+                    assignedVariableName = identifier.Identifier.ValueText;
+                }
+            }
+
+            if (assignedVariableName == null)
+            {
+                return false;
+            }
+
+            var awaitExpressions = containingBlock.DescendantNodes().OfType<AwaitExpressionSyntax>();
+            foreach (var awaitExpr in awaitExpressions)
+            {
+                if (awaitExpr.Expression is IdentifierNameSyntax awaitedIdentifier &&
+                    awaitedIdentifier.Identifier.ValueText == assignedVariableName)
+                {
+                    return true;
+                }
+
+                var identifiersInAwait = awaitExpr.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>();
+                if (identifiersInAwait.Any(id => id.Identifier.ValueText == assignedVariableName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

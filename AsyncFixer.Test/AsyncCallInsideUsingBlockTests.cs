@@ -259,6 +259,173 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        /// <summary>
+        /// Issue #13: Warn when task is returned from using block without await.
+        /// The disposable will be disposed before the task completes.
+        /// </summary>
+        [Fact]
+        public void ReturnTaskFromUsingBlock()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    static Task foo()
+    {
+        using (var stream = new FileStream("""", FileMode.Open))
+        {
+            return stream.CopyToAsync(new MemoryStream());
+        }
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// Issue #13: Warn when task is returned from using var declaration without await.
+        /// The disposable will be disposed before the task completes.
+        /// </summary>
+        [Fact]
+        public void ReturnTaskFromUsingDeclaration()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    static Task foo()
+    {
+        using var stream = new FileStream("""", FileMode.Open);
+        return stream.CopyToAsync(new MemoryStream());
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// Issue #13: Warn when task is returned with multiple using var declarations.
+        /// Both disposables will be disposed before the task completes.
+        /// </summary>
+        [Fact]
+        public void ReturnTaskFromMultipleUsingDeclarations()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    static Task foo()
+    {
+        using var destination = new MemoryStream();
+        using var source = new FileStream("""", FileMode.Open);
+        return source.CopyToAsync(destination);
+    }
+}";
+            // Should report two diagnostics - one for each disposable used in the async call
+            var expected1 = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            var expected2 = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected1, expected2);
+        }
+
+        /// <summary>
+        /// No warning when task from using var is properly awaited
+        /// </summary>
+        [Fact]
+        public void NoWarn_UsingDeclarationWithAwait()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    static async Task foo()
+    {
+        using var stream = new FileStream("""", FileMode.Open);
+        await stream.CopyToAsync(new MemoryStream());
+    }
+}";
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// Warn when using var has fire-and-forget async call (not returned, not awaited)
+        /// </summary>
+        [Fact]
+        public void UsingDeclarationFireAndForget()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    static void foo()
+    {
+        using var stream = new FileStream("""", FileMode.Open);
+        stream.CopyToAsync(new MemoryStream());
+    }
+}";
+            var expected = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// No warning when using var has blocking call (.Wait())
+        /// </summary>
+        [Fact]
+        public void NoWarn_UsingDeclarationWithWait()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    static void foo()
+    {
+        using var stream = new FileStream("""", FileMode.Open);
+        stream.CopyToAsync(new MemoryStream()).Wait();
+    }
+}";
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning when using var task is assigned and awaited later
+        /// </summary>
+        [Fact]
+        public void NoWarn_UsingDeclarationAwaitedLater()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    static async Task foo()
+    {
+        using var stream = new FileStream("""", FileMode.Open);
+        var task = stream.CopyToAsync(new MemoryStream());
+        await task;
+    }
+}";
+            VerifyCSharpDiagnostic(test);
+        }
+
         protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
         {
             return new AsyncCallInsideUsingBlockAnalyzer();
