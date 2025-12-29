@@ -998,6 +998,114 @@ public sealed class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        /// <summary>
+        /// No warning when awaiting Task in a ValueTask-returning method.
+        /// Task is not implicitly convertible to ValueTask, so async/await is required.
+        /// </summary>
+        [Fact]
+        public void NoWarn_TaskToValueTask()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+public sealed class Program
+{
+    public static Task DoWorkAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await DoWorkAsync();
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning when awaiting Task<T> in a ValueTask<T>-returning method.
+        /// Task<T> is not implicitly convertible to ValueTask<T>.
+        /// </summary>
+        [Fact]
+        public void NoWarn_TaskOfTToValueTaskOfT()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+public sealed class Program
+{
+    public static Task<int> GetValueAsync()
+    {
+        return Task.FromResult(42);
+    }
+
+    public async ValueTask<int> GetAsync()
+    {
+        return await GetValueAsync();
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning when awaiting ValueTask in a Task-returning method.
+        /// ValueTask is not implicitly convertible to Task, so async/await is required.
+        /// </summary>
+        [Fact]
+        public void NoWarn_ValueTaskToTask()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+public sealed class Program
+{
+    public static ValueTask WriteAsync()
+    {
+        return ValueTask.CompletedTask;
+    }
+
+    public async Task DoWorkAsync()
+    {
+        await WriteAsync();
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning when awaiting ValueTask<T> in a Task<T>-returning method.
+        /// ValueTask<T> is not implicitly convertible to Task<T>.
+        /// </summary>
+        [Fact]
+        public void NoWarn_ValueTaskOfTToTaskOfT()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+public sealed class Program
+{
+    public static ValueTask<int> GetValueAsync()
+    {
+        return ValueTask.FromResult(42);
+    }
+
+    public async Task<int> GetAsync()
+    {
+        return await GetValueAsync();
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
         [Fact]
         public Task NoWarn_AwaitForEach()
         {

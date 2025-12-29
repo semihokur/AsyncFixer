@@ -208,16 +208,17 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
-        [Fact(Skip = "TODO for later as this requires dataflow analysis")]
+        [Fact]
         public void NoWarn_AwaitedLater()
         {
             var test = @"
 using System;
-using System.IO
+using System.IO;
+using System.Threading.Tasks;
 
 class Program
 {
-    static async void foo()
+    static async Task foo()
     {
         var newStream = new FileStream("""", FileMode.Create);
         using (var stream = new FileStream(""existing"", FileMode.Open))
@@ -226,6 +227,34 @@ class Program
             await task;
         }
     }
+}";
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning when task is assigned and used in Task.WhenAny/WhenAll
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitedLaterWithWhenAny()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+
+class Program
+{
+    static async Task WithTimeoutAsync(CancellationToken token)
+    {
+        using (var cts = CancellationTokenSource.CreateLinkedTokenSource(token))
+        {
+            var task = DoWorkAsync(cts.Token);
+            await Task.WhenAny(task, Task.Delay(1000));
+        }
+    }
+
+    static Task DoWorkAsync(CancellationToken token) => Task.CompletedTask;
 }";
             VerifyCSharpDiagnostic(test);
         }

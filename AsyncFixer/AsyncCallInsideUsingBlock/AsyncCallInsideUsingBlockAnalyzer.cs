@@ -84,6 +84,12 @@ namespace AsyncFixer.AsyncCallInsideUsingBlock
                     continue;
                 }
 
+                // Check if the task is assigned to a variable and awaited later
+                if (IsTaskAssignedAndAwaitedLater(invocation, node))
+                {
+                    continue;
+                }
+
                 // Check whether the async call will be synchronously waited.
                 bool isInvocationWaited = false;
 
@@ -119,6 +125,64 @@ namespace AsyncFixer.AsyncCallInsideUsingBlock
                 var diagnostic = Diagnostic.Create(Rule, location.GetLocation(), identifier.Value.ValueText);
                 context.ReportDiagnostic(diagnostic);
             }
+        }
+
+        /// <summary>
+        /// Checks if the invocation result is assigned to a variable and that variable is later awaited.
+        /// This handles patterns like:
+        ///   var task = stream.CopyToAsync(...);
+        ///   await task;
+        /// or:
+        ///   var task = taskFactory(cts.Token);
+        ///   await Task.WhenAny(task, ...);
+        /// </summary>
+        private static bool IsTaskAssignedAndAwaitedLater(InvocationExpressionSyntax invocation, UsingStatementSyntax usingNode)
+        {
+            // Check if invocation is part of a variable declaration or assignment
+            string assignedVariableName = null;
+
+            // Case 1: var task = invocation();
+            var variableDeclarator = invocation.FirstAncestorOrSelf<VariableDeclaratorSyntax>();
+            if (variableDeclarator != null)
+            {
+                assignedVariableName = variableDeclarator.Identifier.ValueText;
+            }
+
+            // Case 2: task = invocation();
+            if (assignedVariableName == null)
+            {
+                var assignment = invocation.FirstAncestorOrSelf<AssignmentExpressionSyntax>();
+                if (assignment?.Left is IdentifierNameSyntax identifier)
+                {
+                    assignedVariableName = identifier.Identifier.ValueText;
+                }
+            }
+
+            if (assignedVariableName == null)
+            {
+                return false;
+            }
+
+            // Now check if this variable is awaited within the using block
+            var awaitExpressions = usingNode.Statement.DescendantNodes().OfType<AwaitExpressionSyntax>();
+            foreach (var awaitExpr in awaitExpressions)
+            {
+                // Check if the variable is directly awaited: await task;
+                if (awaitExpr.Expression is IdentifierNameSyntax awaitedIdentifier &&
+                    awaitedIdentifier.Identifier.ValueText == assignedVariableName)
+                {
+                    return true;
+                }
+
+                // Check if the variable is used in a method call that is awaited: await Task.WhenAny(task, ...)
+                var identifiersInAwait = awaitExpr.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>();
+                if (identifiersInAwait.Any(id => id.Identifier.ValueText == assignedVariableName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
