@@ -213,6 +213,42 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        [Fact]
+        public Task NoWarn_ActionEventWithAsyncLambda_Issue16()
+        {
+            // No diagnostics expected - async lambda used as event handler
+            // Even though the event uses Action delegate instead of EventHandler,
+            // it's still an event subscription pattern (issue #16)
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class ComponentBase { }
+
+class AppState
+{
+    public event Action<ComponentBase, string> StateChanged;
+}
+
+class Program : ComponentBase
+{
+    private AppState _appState = new AppState();
+
+    protected void OnInitialized()
+    {
+        _appState.StateChanged += async (Source, Property) =>
+            await AppState_StateChanged(Source, Property);
+    }
+
+    private Task AppState_StateChanged(ComponentBase source, string property)
+    {
+        return Task.CompletedTask;
+    }
+}";
+
+            return Verify.VerifyAsync(test);
+        }
+
         protected override CodeFixProvider GetCSharpCodeFixProvider()
         {
             return new AsyncVoidFixer();
