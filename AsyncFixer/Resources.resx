@@ -118,23 +118,23 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="AsyncCallInsideUsingBlockDescription" xml:space="preserve">
-    <value />
+    <value>When an async method is called without await inside a using block, the disposable resource may be disposed before the async operation completes, causing exceptions or undefined behavior. Always await async calls that depend on resources in the using scope.</value>
   </data>
   <data name="AsyncCallInsideUsingBlockMessageFormat" xml:space="preserve">
-    <value>'{0}' is used in a fire-and-forget async call inside a using block</value>
+    <value>'{0}' is not awaited inside a using block - the resource may be disposed before the async operation completes. Add 'await' to ensure proper resource lifetime.</value>
   </data>
   <data name="AsyncCallInsideUsingBlockTitle" xml:space="preserve">
     <value>Fire-and-forget async call inside a using block</value>
   </data>
   <data name="AsyncVoidDescription" xml:space="preserve">
-    <value />
+    <value>Async void methods cannot be awaited, making it impossible to know when they complete or to catch their exceptions. Exceptions thrown in async void methods will crash the process. Use 'async Task' instead, which allows proper exception handling and await support. The only valid use case for async void is event handlers.</value>
     <comment>An optional longer localizable description of the diagnostic.</comment>
   </data>
   <data name="AsyncVoidFixerTitle" xml:space="preserve">
     <value>Convert void to Task</value>
   </data>
   <data name="AsyncVoidMessageFormat" xml:space="preserve">
-    <value>Avoid unsupported fire-and-forget async-void methods or delegates. Unhandled exceptions will crash the process.</value>
+    <value>Async void method or delegate detected - use 'async Task' instead. Async void cannot be awaited and unhandled exceptions will crash the process. Only event handlers should use async void.</value>
     <comment>The format-able message the diagnostic displays.</comment>
   </data>
   <data name="AsyncVoidTitle" xml:space="preserve">
@@ -142,45 +142,45 @@
     <comment>The title of the diagnostic.</comment>
   </data>
   <data name="BlockingCallInsideAsyncDescription" xml:space="preserve">
-    <value />
+    <value>Blocking calls like Task.Result, Task.Wait(), Thread.Sleep(), or Task.GetAwaiter().GetResult() inside async methods can cause deadlocks, especially in UI or ASP.NET contexts with synchronization contexts. Use the async equivalents: await instead of .Result/.Wait(), Task.Delay() instead of Thread.Sleep(), Task.WhenAll() instead of Task.WaitAll().</value>
   </data>
   <data name="BlockingCallInsideAsyncFixerTitle" xml:space="preserve">
-    <value>Insert Async Call</value>
+    <value>Replace with async equivalent</value>
   </data>
   <data name="BlockingCallInsideAsyncMessageFormat" xml:space="preserve">
-    <value>{0} should be used instead of {1}</value>
+    <value>Blocking call '{1}' can cause deadlocks in async code. Use '{0}' instead.</value>
   </data>
   <data name="BlockingCallInsideAsyncTitle" xml:space="preserve">
-    <value>Long-running or blocking operations inside an async method</value>
+    <value>Blocking call inside an async method</value>
   </data>
   <data name="NestedTaskToOuterTaskDescription" xml:space="preserve">
-    <value />
+    <value>Using TaskFactory.StartNew() with an async lambda creates a Task&lt;Task&gt; (nested task). Awaiting only the outer task doesn't wait for the inner async operation to complete. Use Task.Run() instead, which automatically unwraps async lambdas, or call .Unwrap() on the result.</value>
   </data>
   <data name="NestedTaskToOuterTaskMessageFormat" xml:space="preserve">
-    <value>Downcasting from a nested task (Task&lt;Task&gt;) to a outer task or awaiting a nested task is occurred. UnWrap() is suggested.</value>
+    <value>Task&lt;Task&gt; detected from async lambda - awaiting only the outer task won't wait for completion. Use Task.Run() instead of TaskFactory.StartNew(), or call .Unwrap() to get the inner task.</value>
   </data>
   <data name="NestedTaskToOuterTaskTitle" xml:space="preserve">
-    <value>Downcasting from a nested task to an outer task</value>
+    <value>Nested Task&lt;Task&gt; from TaskFactory.StartNew with async lambda</value>
   </data>
   <data name="UnnecessaryAsyncDescription" xml:space="preserve">
-    <value>Await is the last statement of the method so you can return Task and await in the caller method.</value>
+    <value>When a method only awaits a single expression as its last statement and returns the result, the async/await keywords add unnecessary overhead. Return the Task directly and let the caller await it. This reduces state machine allocation and improves performance. Exception: Keep async/await when you need try/catch around the await or when the method has multiple awaits.</value>
   </data>
   <data name="UnnecessaryAsyncFixerTitle" xml:space="preserve">
-    <value>Remove async/await</value>
+    <value>Remove async/await and return Task directly</value>
   </data>
   <data name="UnnecessaryAsyncMessageFormat" xml:space="preserve">
-    <value>The method '{0}' does not need to use async/await</value>
+    <value>Method '{0}' only awaits a single expression - remove async/await and return the Task directly to reduce overhead</value>
   </data>
   <data name="UnnecessaryAsyncTitle" xml:space="preserve">
     <value>Unnecessary async/await usage</value>
   </data>
   <data name="ImplicitTaskTypeMismatchDescription" xml:space="preserve">
-    <value>A non-async lambda returning Task&lt;T&gt; is being assigned to a delegate expecting Task. Unlike async lambdas which produce compiler error CS8031, non-async lambdas silently discard the result due to implicit conversion from Task&lt;T&gt; to Task.</value>
+    <value>A non-async lambda returning Task&lt;T&gt; is being assigned to a delegate expecting Task (e.g., Func&lt;Task&gt;). The result value is silently discarded due to implicit conversion from Task&lt;T&gt; to Task. Unlike async lambdas which produce compiler error CS8031 for this pattern, non-async lambdas compile without warning. Either change the delegate type to Func&lt;Task&lt;T&gt;&gt; to preserve the result, or explicitly discard it if intentional.</value>
   </data>
   <data name="ImplicitTaskTypeMismatchMessageFormat" xml:space="preserve">
-    <value>A lambda returning Task&lt;T&gt; is being passed to a delegate expecting Task. The return value will be silently discarded.</value>
+    <value>Lambda returns Task&lt;T&gt; but delegate expects Task - the result is silently discarded. Change delegate to Func&lt;Task&lt;T&gt;&gt; or explicitly discard the result.</value>
   </data>
   <data name="ImplicitTaskTypeMismatchTitle" xml:space="preserve">
-    <value>Implicit conversion from Task&lt;T&gt; to Task discards the result</value>
+    <value>Task&lt;T&gt; to Task conversion silently discards result</value>
   </data>
 </root>

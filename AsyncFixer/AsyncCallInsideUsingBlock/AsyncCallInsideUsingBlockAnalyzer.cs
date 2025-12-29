@@ -25,7 +25,7 @@ namespace AsyncFixer.AsyncCallInsideUsingBlock
             isEnabledByDefault: true,
             description: Description,
             customTags: WellKnownDiagnosticTags.Telemetry,
-            helpLinkUri: Constants.RepositoryLink);
+            helpLinkUri: Constants.AsyncFixer04HelpLink);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(Rule); } }
 

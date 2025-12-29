@@ -24,7 +24,7 @@ namespace AsyncFixer.NestedTaskToOuterTask
             isEnabledByDefault: true,
             description: Description,
             customTags: WellKnownDiagnosticTags.Telemetry,
-            helpLinkUri: Constants.RepositoryLink);
+            helpLinkUri: Constants.AsyncFixer05HelpLink);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(Rule); } }
 

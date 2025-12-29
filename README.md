@@ -1,122 +1,292 @@
-AsyncFixer helps developers in finding and correcting common `async/await` *misuses* (i.e., anti-patterns). It currently detects 6 common kinds of async/await misuses and fixes 3 of them via program transformations. AsyncFixer has been tested with thousands of open-source C# projects and successfully handles many corner cases. It is also one of the most common analyzers used in C# projects from Microsoft.
+# AsyncFixer
 
-AsyncFixer will work just in the IDE and work as an analyzer on every project you open in Visual Studio. It can also operate in batch mode to correct all misuses in the document, project, or solution. You can download the VSIX from [here](https://visualstudiogallery.msdn.microsoft.com/03448836-db42-46b3-a5c7-5fc5d36a8308).
+[![NuGet](https://img.shields.io/nuget/v/AsyncFixer.svg)](https://www.nuget.org/packages/AsyncFixer)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/AsyncFixer.svg)](https://www.nuget.org/packages/AsyncFixer)
 
-If you want AsyncFixer to deploy as a NuGet package and work as a project-local analyzer that participates in builds, you can use the nuget package. Attaching an analyzer to a project means that the analyzer travels with the project to source control and so it is easy to apply the same rule for the team. You can download the nuget package from [here](https://www.nuget.org/packages/AsyncFixer).
+AsyncFixer helps developers in finding and correcting common `async/await` *misuses* (i.e., anti-patterns). It currently detects 6 common kinds of async/await misuses and fixes 3 of them via code fixes. AsyncFixer has been tested with thousands of open-source C# projects and successfully handles many corner cases. It is also one of the most common analyzers used in C# projects from Microsoft.
 
-Here are `async/await` *misuses* (i.e., anti-patterns) that AsyncFixer can currently detect:
+## Installation
 
-### AsyncFixer01: Unnecessary async/await usage
+**NuGet (Recommended):** Install as a project-local analyzer that participates in builds:
+
+```bash
+dotnet add package AsyncFixer
+```
+
+Or via Package Manager:
+```powershell
+Install-Package AsyncFixer
+```
+
+**VSIX:** Install as a Visual Studio extension from the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=SemihOkur.AsyncFixer2022).
+
+## Quick Reference
+
+| Rule | Description | Has Fix |
+|------|-------------|:-------:|
+| [AsyncFixer01](#asyncfixer01) | Unnecessary async/await usage | ✅ |
+| [AsyncFixer02](#asyncfixer02) | Blocking calls inside async methods | ✅ |
+| [AsyncFixer03](#asyncfixer03) | Async void methods and delegates | ✅ |
+| [AsyncFixer04](#asyncfixer04) | Unawaited async call in using block | ❌ |
+| [AsyncFixer05](#asyncfixer05) | Nested Task from TaskFactory.StartNew | ❌ |
+| [AsyncFixer06](#asyncfixer06) | Task&lt;T&gt; to Task implicit conversion | ❌ |
+
+## Configuration
+
+You can configure rule severity in your `.editorconfig`:
+
+```ini
+[*.cs]
+# Disable a rule
+dotnet_diagnostic.AsyncFixer01.severity = none
+
+# Treat as error
+dotnet_diagnostic.AsyncFixer02.severity = error
+
+# Treat as suggestion
+dotnet_diagnostic.AsyncFixer03.severity = suggestion
+```
+
+Or suppress individual occurrences:
+
+```csharp
+#pragma warning disable AsyncFixer01
+async Task<int> Method() => await SomeTaskAsync();
+#pragma warning restore AsyncFixer01
+```
+
+---
+
+## AsyncFixer01
+### Unnecessary async/await usage
 
 There are some async methods where there is no need to use `async/await` keywords. It is important to detect this kind of misuse because adding the async modifier comes at a price. AsyncFixer automatically removes `async/await` keywords from those methods.
 
+**Example:**
+
+```csharp
+// ❌ Bad: Unnecessary async/await
+async Task<int> GetValueAsync()
+{
+    return await _cache.GetAsync(key);
+}
+
+// ✅ Good: Return task directly
+Task<int> GetValueAsync()
+{
+    return _cache.GetAsync(key);
+}
+```
+
+> **Note:** Keep `async/await` when you need exception handling around the await, when there are multiple awaits, or when the method is inside a `using` or `try` block.
+
 ![asyncfixer-1.gif](https://raw.githubusercontent.com/semihokur/AsyncFixer/main/img/asyncfixer-1.gif)
 
-### AsyncFixer02: Long-running or blocking operations inside an async method
+## AsyncFixer02
+### Long-running or blocking operations inside an async method
 
-Developers use some potentially long-running or blocking operations inside async methods even though there are corresponding asynchronous versions of these methods in .NET or third-party libraries. Some examples for such operations: `Task.Wait()`, `Task.Result`, `StreamReader.ReadToEnd()`, `Thread.Sleep()`, etc.
+Developers use some potentially long-running or blocking operations inside async methods even though there are corresponding asynchronous versions of these methods in .NET or third-party libraries.
 
-AsyncFixer automatically replaces those operations with their corresponding asynchronous operations and inserts an `await` expression. For instance, it converts `Thread.Sleep(...)` to `await Task.Delay(...)`.
+**Common blocking calls and their async replacements:**
+
+| Blocking Call | Async Replacement |
+|--------------|-------------------|
+| `Task.Wait()` | `await task` |
+| `Task.Result` | `await task` |
+| `Task.WaitAll()` | `await Task.WhenAll()` |
+| `Task.WaitAny()` | `await Task.WhenAny()` |
+| `Thread.Sleep()` | `await Task.Delay()` |
+| `StreamReader.ReadToEnd()` | `await StreamReader.ReadToEndAsync()` |
+
+**Example:**
+
+```csharp
+// ❌ Bad: Blocking call can cause deadlocks
+async Task ProcessAsync()
+{
+    var result = GetDataAsync().Result;  // Blocks!
+    Thread.Sleep(1000);                   // Blocks!
+}
+
+// ✅ Good: Use async equivalents
+async Task ProcessAsync()
+{
+    var result = await GetDataAsync();
+    await Task.Delay(1000);
+}
+```
 
 ![asyncfixer-2.gif](https://raw.githubusercontent.com/semihokur/AsyncFixer/main/img/asyncfixer-2.gif)
 
-### AsyncFixer03: Fire-and-forget *async-void* methods and delegates
+## AsyncFixer03
+### Fire-and-forget *async-void* methods and delegates
 
-Some async methods and delegates are fire-and-forget, which return `void`. Unless a method is only called as an event handler, it must be awaitable. Otherwise, it is a code smell because it complicates control flow and makes error detection/correction difficult. Unhandled exceptions in those *async-void* methods and delegates will crash the process as well.
+Some async methods and delegates are fire-and-forget, which return `void`. Unless a method is only called as an event handler, it must be awaitable. Otherwise, it is a code smell because it complicates control flow and makes error detection/correction difficult. Unhandled exceptions in those *async-void* methods and delegates will crash the process.
 
-AsyncFixer automatically converts `void` to `Task`.
+**Example:**
 
-![asyncfixer-3.gif](https://raw.githubusercontent.com/semihokur/AsyncFixer/main/img/asyncfixer-3.gif) 
-
-### AsyncFixer04: Fire-and-forget async call inside an *using* block
-
-Inside a `using` block, developers insert a fire-and-forget async call which uses a disposable object as a parameter or target object. It can cause potential exceptions or wrong results. Here is an example:
-
-```
-static void foo()
+```csharp
+// ❌ Bad: async void - exceptions will crash the process
+async void ProcessDataAsync()
 {
-    var newStream = new FileStream("file.txt", FileMode.Create);
-    using (var stream = new FileStream("newfile.txt", FileMode.Open))
-    {
-        newStream.CopyToAsync(stream);
-    }
+    await Task.Delay(1000);
+    throw new Exception("Oops!"); // Crashes the app!
+}
+
+// ✅ Good: async Task - exceptions can be caught
+async Task ProcessDataAsync()
+{
+    await Task.Delay(1000);
+    throw new Exception("Oops!"); // Can be caught by caller
 }
 ```
-We copy the contents of the file to another file above. If the file size is big enough to make `CopyToAsync` take non-trivial duration, we will have `ObjectDisposedException` because `Stream` will be implicitly disposed due to the `using` block before `CopyToAsync` is finished. To fix the issue, we need to await  asynchronous operations involving disposable objects inside `using` blocks:
-```
-    await newStream.CopyToAsync(stream);
+
+> **Note:** `async void` is acceptable for event handlers like `button_Click`.
+
+![asyncfixer-3.gif](https://raw.githubusercontent.com/semihokur/AsyncFixer/main/img/asyncfixer-3.gif)
+
+## AsyncFixer04
+### Fire-and-forget async call inside an *using* block
+
+Inside a `using` block, developers insert a fire-and-forget async call which uses a disposable object as a parameter or target object. It can cause potential exceptions or wrong results because the resource may be disposed before the async operation completes.
+
+**Example:**
+
+```csharp
+// ❌ Bad: Stream disposed before copy completes
+using (var stream = new FileStream("file.txt", FileMode.Open))
+{
+    stream.CopyToAsync(destination);  // Fire-and-forget!
+}  // stream disposed here - CopyToAsync may still be running!
+
+// ✅ Good: Await the async operation
+using (var stream = new FileStream("file.txt", FileMode.Open))
+{
+    await stream.CopyToAsync(destination);
+}
 ```
 
-### AsyncFixer05: Downcasting from a nested task to an outer task.
+## AsyncFixer05
+### Downcasting from a nested task to an outer task
 
-Downcasting from a nested task to a task or awaiting a nested task is dangerous. There is no way to wait for and get the result of the child task. This usually occurs when mixing `async/await` keywords with the old threading APIs such as `TaskFactory.StartNew`. Here is an example: 
+Downcasting from a nested task to a task or awaiting a nested task is dangerous. There is no way to wait for and get the result of the child task. This usually occurs when mixing `async/await` keywords with the old threading APIs such as `TaskFactory.StartNew`.
 
-```
-async Task foo()
+**Example:**
+
+```csharp
+// ❌ Bad: StartNew returns Task<Task>, outer await completes immediately
+async Task ProcessAsync()
 {
     Console.WriteLine("Hello");
-    await Task.Factory.StartNew(() => Task.Delay(1000)); // StartNew call returns a nested task: Task<Task>
-    Console.WriteLine("World");
+    await Task.Factory.StartNew(() => Task.Delay(1000)); // Returns Task<Task>!
+    Console.WriteLine("World");  // Prints immediately, doesn't wait 1 second
+}
+
+// ✅ Good: Use Unwrap() or Task.Run()
+async Task ProcessAsync()
+{
+    Console.WriteLine("Hello");
+    await Task.Factory.StartNew(() => Task.Delay(1000)).Unwrap();
+    // Or simply:
+    await Task.Run(() => Task.Delay(1000));
+    Console.WriteLine("World");  // Waits 1 second
 }
 ```
-A developer might expect one-second latency between "Hello" and "World" lines. However, those strings will be printed instantaneously without any latency. The reason is that we await a nested task, which is the return type of `StartNew` call. When we await the nested task, the return value is the inner task that is the result of `Task.Delay` call. As we do not await the inner task, we do not see the effect of the delay call. There are three possible fixes: 
 
-1. We can await the inner task as well: 
+**Fixes:**
 
-```
-await (await Task.Factory.StartNew(() => Task.Delay(1000)));
-```
+1. Double await: `await (await Task.Factory.StartNew(() => Task.Delay(1000)));`
+2. Use `Unwrap()`: `await Task.Factory.StartNew(() => Task.Delay(1000)).Unwrap();`
+3. Use `Task.Run()`: `await Task.Run(() => Task.Delay(1000));` *(preferred)*
 
-2. We can use `Unwrap` to expose the inner task to the `await` expression:
-
-```
-await Task.Factory.StartNew(() => Task.Delay(1000)).Unwrap();
-```
-
-3. If you do not have reasons to use `TaskFactory.StartNew` such as `TaskCreationOptions` and a custom `TaskScheduler`, we should always use `Task.Run` to automatically unwrap the inner task.
-
-```
-await Task.Run(() => Task.Delay(1000));
-```
-
-### AsyncFixer06: Discarded `Task<T>` result when converted to `Task`
+## AsyncFixer06
+### Discarded `Task<T>` result when converted to `Task`
 
 When a non-async lambda or delegate returns `Task<T>` but is assigned to a `Func<Task>` or similar delegate type expecting `Task`, the result value is silently discarded. This is because `Task<T>` implicitly converts to `Task`, but the generic result is lost.
 
-Note that for async lambdas, the compiler already catches this issue with error CS8031: *"Async lambda expression converted to a 'Task' returning delegate cannot return a value. Did you intend to return 'Task<T>'?"*. However, for non-async lambdas that directly return a `Task<T>`, there is no compiler warning - the conversion happens silently, which makes this pattern particularly dangerous.
+> **Note:** For async lambdas, the compiler catches this with error CS8031. However, for non-async lambdas, there is no warning - the conversion happens silently.
 
-Here is an example:
+**Example:**
 
-```
-async Task foo()
-{
-    Func<Task> fn = () => GetDataAsync(); // GetDataAsync returns Task<string>
-    await fn();
-    // The string result is silently discarded - no compiler warning!
-}
+```csharp
+// ❌ Bad: Task<string> silently converted to Task, result discarded
+Func<Task> fn = () => GetDataAsync();  // GetDataAsync returns Task<string>
+await fn();  // The string result is lost!
 
-async Task<string> GetDataAsync()
-{
-    return await httpClient.GetStringAsync("https://example.com");
-}
-```
-
-This is dangerous because the developer likely intended to use the returned value. The implicit conversion hides the fact that data is being lost. To fix this issue, there are two possible solutions:
-
-1. Change the delegate type to match the return type:
-
-```
+// ✅ Good: Use correct delegate type
 Func<Task<string>> fn = () => GetDataAsync();
 var result = await fn();
-```
 
-2. If you truly don't need the result, make it explicit by discarding:
-
-```
+// ✅ Also Good: Explicit discard if you don't need the result
 Func<Task> fn = async () => { _ = await GetDataAsync(); };
 ```
 
+---
+
 ## FAQ
+
+### Should I always follow AsyncFixer01? What are the benefits of eliding async/await?
+
+**Yes, in most cases.** Removing unnecessary `async/await` provides real benefits:
+
+**Benefits of eliding async/await:**
+
+1. **Performance**: Avoids allocating a state machine object for every call. In hot paths, this reduces GC pressure and improves throughput.
+2. **Reduced overhead**: Eliminates the state machine's `MoveNext()` invocations and task wrapping/unwrapping.
+3. **Simpler IL**: The compiled code is smaller and more straightforward.
+4. **Consistent behavior**: When you just pass through a task, the behavior is identical to the underlying method.
+
+```csharp
+// ❌ Unnecessary overhead - allocates state machine
+async Task<User> GetUserAsync(int id) => await _repository.GetUserAsync(id);
+
+// ✅ Direct passthrough - no allocation, same behavior
+Task<User> GetUserAsync(int id) => _repository.GetUserAsync(id);
+```
+
+**When to keep async/await:**
+
+There are specific scenarios where you should keep `async/await`:
+
+1. **Inside `using` blocks**: Ensures disposal happens after the task completes.
+2. **Inside `try/catch`**: Required to catch exceptions from the awaited task.
+3. **Multiple awaits**: When the method has more than one await expression.
+4. **Exception stack traces matter**: `async/await` preserves the method in stack traces.
+
+```csharp
+// Keep async/await here - inside using block
+async Task ProcessAsync()
+{
+    using var stream = new FileStream("file.txt", FileMode.Open);
+    await stream.ReadAsync(buffer);  // Must await before disposal
+}
+
+// Keep async/await here - exception handling
+async Task<Data> GetDataAsync()
+{
+    try {
+        return await _client.GetAsync();
+    } catch (HttpException) {
+        return Data.Empty;
+    }
+}
+```
+
+**Summary**: Follow AsyncFixer01 for simple passthrough methods. Suppress it only when you have a specific reason (debugging needs, exception handling, resource management).
+
+### Why does AsyncFixer02 warn about `.Result` after `await Task.WhenAll()`?
+
+It doesn't anymore! AsyncFixer recognizes this safe pattern:
+
+```csharp
+Task<int>[] tasks = CreateTasks();
+await Task.WhenAll(tasks);  // All tasks are now completed
+
+foreach (var task in tasks)
+    Console.WriteLine(task.Result);  // Safe - no warning
+```
+
+After `await Task.WhenAll()`, all tasks in the collection are guaranteed to be completed, so accessing `.Result` won't block. If you're still seeing warnings, make sure you have the latest version of AsyncFixer.
 
 ### What is the difference between AsyncFixer05 and AsyncFixer06?
 
@@ -126,15 +296,51 @@ Both rules detect task type mismatches, but they address different problems:
 |--------|--------------|--------------|
 | **Pattern** | `Task<Task<T>>` (nested task) | `Task<T>` → `Task` (implicit conversion) |
 | **Problem** | Awaiting outer task doesn't wait for inner task | Result value `T` is silently discarded |
-| **Context** | `Task.Factory.StartNew`, `Task.Run` with async lambdas | Lambda/delegate assignments to `Func<Task>` |
-| **Fix** | Use `Unwrap()` or double await | Change delegate type to `Func<Task<T>>` |
-
-Example comparison:
+| **Context** | `TaskFactory.StartNew` with async lambdas | Lambda assignments to `Func<Task>` |
+| **Fix** | Use `Unwrap()` or `Task.Run()` | Change delegate type to `Func<Task<T>>` |
 
 ```csharp
 // AsyncFixer05 - nested task: Task<Task>
 Task task = Task.Factory.StartNew(() => DelayAsync());
 
 // AsyncFixer06 - result discarded: Task<string> converted to Task
-Func<Task> fn = () => GetDataAsync(); // GetDataAsync returns Task<string>
+Func<Task> fn = () => GetDataAsync();  // GetDataAsync returns Task<string>
 ```
+
+### How do I suppress AsyncFixer warnings?
+
+There are several ways:
+
+**1. Inline suppression (single occurrence):**
+```csharp
+#pragma warning disable AsyncFixer01
+async Task<int> Method() => await SomeTaskAsync();
+#pragma warning restore AsyncFixer01
+```
+
+**2. Attribute suppression (method or class level):**
+```csharp
+[System.Diagnostics.CodeAnalysis.SuppressMessage("AsyncUsage", "AsyncFixer01")]
+async Task<int> Method() => await SomeTaskAsync();
+```
+
+**3. EditorConfig (project-wide):**
+```ini
+[*.cs]
+dotnet_diagnostic.AsyncFixer01.severity = none
+```
+
+**4. GlobalSuppressions.cs (assembly level):**
+```csharp
+[assembly: SuppressMessage("AsyncUsage", "AsyncFixer01", Justification = "Team preference")]
+```
+
+---
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request on [GitHub](https://github.com/semihokur/AsyncFixer).
+
+## License
+
+This project is licensed under the MIT License.
