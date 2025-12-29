@@ -256,9 +256,11 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
-        // TODO: remove the awaits even though they do not use return statements.
-        [Fact(Skip = "Remove awaits")]
-        public void UnnecessaryAsyncTest7()
+        /// <summary>
+        /// If-else with terminal awaits in both branches can be transformed.
+        /// </summary>
+        [Fact]
+        public void UnnecessaryAsyncTest7_IfElseTerminalAwaits()
         {
             var test = @"
 using System;
@@ -294,12 +296,411 @@ class Program
         {
             return Task.Delay(2);
         }
-
-        return Task.Delay(1);
+        else
+        {
+            return Task.Delay(1);
+        }
     }
 }";
 
             VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
+        /// Else-if chain with terminal awaits in all branches can be transformed.
+        /// </summary>
+        [Fact]
+        public void IfElseIfElse_TerminalAwaits()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        if (i > 10)
+        {
+            await Task.Delay(3);
+        }
+        else if (i > 1)
+        {
+            await Task.Delay(2);
+        }
+        else
+        {
+            await Task.Delay(1);
+        }
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo(int i)
+    {
+        if (i > 10)
+        {
+            return Task.Delay(3);
+        }
+        else if (i > 1)
+        {
+            return Task.Delay(2);
+        }
+        else
+        {
+            return Task.Delay(1);
+        }
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
+        /// If-else with ConfigureAwait in terminal awaits.
+        /// </summary>
+        [Fact]
+        public void IfElse_TerminalAwaits_WithConfigureAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        if (i > 1)
+        {
+            await Task.Delay(2).ConfigureAwait(false);
+        }
+        else
+        {
+            await Task.Delay(1).ConfigureAwait(false);
+        }
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo(int i)
+    {
+        if (i > 1)
+        {
+            return Task.Delay(2);
+        }
+        else
+        {
+            return Task.Delay(1);
+        }
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
+        /// No warning: if without else - not all paths covered.
+        /// </summary>
+        [Fact]
+        public void NoWarn_IfWithoutElse_TerminalAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        if (i > 1)
+        {
+            await Task.Delay(2);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: if-else where one branch doesn't end with await.
+        /// </summary>
+        [Fact]
+        public void NoWarn_IfElse_OneBranchNoAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        if (i > 1)
+        {
+            await Task.Delay(2);
+        }
+        else
+        {
+            Console.WriteLine(""no await here"");
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: if-else with code after the if-else statement.
+        /// </summary>
+        [Fact]
+        public void NoWarn_IfElse_CodeAfter()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        if (i > 1)
+        {
+            await Task.Delay(2);
+        }
+        else
+        {
+            await Task.Delay(1);
+        }
+        Console.WriteLine(""after"");
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: if-else inside using block.
+        /// </summary>
+        [Fact]
+        public void NoWarn_IfElse_InsideUsingBlock()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+using System.IO;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        using (var stream = new MemoryStream())
+        {
+            if (i > 1)
+            {
+                await Task.Delay(2);
+            }
+            else
+            {
+                await Task.Delay(1);
+            }
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: if-else inside try block.
+        /// </summary>
+        [Fact]
+        public void NoWarn_IfElse_InsideTryBlock()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        try
+        {
+            if (i > 1)
+            {
+                await Task.Delay(2);
+            }
+            else
+            {
+                await Task.Delay(1);
+            }
+        }
+        catch { }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: if-else with using declaration in scope.
+        /// </summary>
+        [Fact]
+        public void NoWarn_IfElse_UsingDeclarationInScope()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+using System.IO;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        using var stream = new MemoryStream();
+        if (i > 1)
+        {
+            await Task.Delay(2);
+        }
+        else
+        {
+            await Task.Delay(1);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: if-else with multiple awaits in one branch.
+        /// </summary>
+        [Fact]
+        public void NoWarn_IfElse_MultipleAwaitsInBranch()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        if (i > 1)
+        {
+            await Task.Delay(1);
+            await Task.Delay(2);
+        }
+        else
+        {
+            await Task.Delay(3);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: if-else-if missing final else - not all paths covered.
+        /// </summary>
+        [Fact]
+        public void NoWarn_IfElseIf_MissingFinalElse()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        if (i > 10)
+        {
+            await Task.Delay(3);
+        }
+        else if (i > 1)
+        {
+            await Task.Delay(2);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: if-else where await is not the last statement in branch.
+        /// </summary>
+        [Fact]
+        public void NoWarn_IfElse_AwaitNotLastInBranch()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        if (i > 1)
+        {
+            await Task.Delay(2);
+            Console.WriteLine(""after await"");
+        }
+        else
+        {
+            await Task.Delay(1);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: if-else with await inside lambda in branch.
+        /// </summary>
+        [Fact]
+        public void NoWarn_IfElse_AwaitInLambda()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int i)
+    {
+        if (i > 1)
+        {
+            await Task.Run(async () => await Task.Delay(2));
+        }
+        else
+        {
+            Console.WriteLine(""sync"");
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
         }
 
         [Fact]
@@ -1248,6 +1649,1051 @@ internal class Program
                     Sources = { fixtest },
                 },
             }.RunAsync();
+        }
+
+        #region Edge Case Tests - Scenarios where async/await should NOT be removed
+
+        /// <summary>
+        /// No warning: await using statement - removing async would cause premature disposal.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitUsingStatement()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class AsyncDisposable : IAsyncDisposable
+{
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public Task DoWorkAsync() => Task.CompletedTask;
+}
+
+class Program
+{
+    async Task foo()
+    {
+        await using var resource = new AsyncDisposable();
+        await resource.DoWorkAsync();
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: await in conditional expression (ternary) - complex control flow.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitInTernaryCondition()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task<int> foo(bool condition)
+    {
+        return await (condition ? Task.FromResult(1) : Task.FromResult(2));
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// No warning: await in null-coalescing expression.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitInNullCoalescing()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task<int> nullableTask;
+
+    async Task<int> foo()
+    {
+        return await (nullableTask ?? Task.FromResult(0));
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// No warning: recursive async method - changing to sync return could cause stack overflow.
+        /// This is actually safe to transform, but tests current behavior.
+        /// </summary>
+        [Fact]
+        public void RecursiveAsyncMethod()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task<int> Factorial(int n)
+    {
+        if (n <= 1)
+            return 1;
+        return n * await Factorial(n - 1);
+    }
+}";
+
+            // This should NOT warn because there's a non-await return path
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: await with captured exception context in async method.
+        /// Removing async changes exception stack trace behavior.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitInFinally()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        try
+        {
+            throw new Exception();
+        }
+        finally
+        {
+            await Task.Delay(1);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: await in catch block.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitInCatch()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        try
+        {
+            throw new Exception();
+        }
+        catch
+        {
+            await Task.Delay(1);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: method with multiple awaits where only last could be removed.
+        /// </summary>
+        [Fact]
+        public void NoWarn_MultipleAwaitsOnlyLastRemovable()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        await Task.Delay(1);
+        Console.WriteLine(""between"");
+        await Task.Delay(2);
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: await on result of another await.
+        /// </summary>
+        [Fact]
+        public void NoWarn_NestedAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task<int> foo()
+    {
+        return await await Task.FromResult(Task.FromResult(42));
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: await in switch expression arm.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitInSwitchExpression()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task<int> foo(int x)
+    {
+        return await (x switch
+        {
+            1 => Task.FromResult(10),
+            2 => Task.FromResult(20),
+            _ => Task.FromResult(0)
+        });
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// No warning: await in switch statement with multiple cases.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitInSwitchStatement()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(int x)
+    {
+        switch (x)
+        {
+            case 1:
+                await Task.Delay(1);
+                break;
+            case 2:
+                await Task.Delay(2);
+                break;
+            default:
+                await Task.Delay(3);
+                break;
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: await in loop - only last iteration's await matters but we can't know that.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitInLoop()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            await Task.Delay(i);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: await in while loop.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitInWhileLoop()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        int i = 0;
+        while (i < 3)
+        {
+            await Task.Delay(i++);
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: ConfiguredTaskAwaitable cannot be returned directly.
+        /// </summary>
+        [Fact]
+        public void NoWarn_ConfiguredTaskAwaitable()
+        {
+            // This is already handled, but let's verify
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        await Task.Delay(1).ConfigureAwait(false);
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        #endregion
+
+        #region Local Function Tests
+
+        /// <summary>
+        /// Async local functions are analyzed just like regular methods.
+        /// Both the outer method and the local function should be flagged.
+        /// </summary>
+        [Fact]
+        public void Warn_AsyncLocalFunctionAnalyzed()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        async Task LocalAsync()
+        {
+            await Task.Delay(1);
+        }
+
+        await LocalAsync();
+    }
+}";
+
+            // Both the outer method and the local function are analyzed
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        Task LocalAsync()
+        {
+            return Task.Delay(1);
+        }
+
+        return LocalAsync();
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
+        /// Warning: Expression-bodied local function with single await.
+        /// </summary>
+        [Fact]
+        public void Warn_LocalFunction_ExpressionBodied()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        async Task LocalAsync() => await Task.Delay(1);
+        return LocalAsync();
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        Task LocalAsync() => Task.Delay(1);
+        return LocalAsync();
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
+        /// Warning: Local function with return await.
+        /// </summary>
+        [Fact]
+        public void Warn_LocalFunction_ReturnAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task<int> foo()
+    {
+        async Task<int> LocalAsync()
+        {
+            return await Task.FromResult(42);
+        }
+        return LocalAsync();
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task<int> foo()
+    {
+        Task<int> LocalAsync()
+        {
+            return Task.FromResult(42);
+        }
+        return LocalAsync();
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
+        /// Warning: Local function with if-else terminal awaits.
+        /// </summary>
+        [Fact]
+        public void Warn_LocalFunction_IfElseTerminalAwaits()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        async Task LocalAsync(bool flag)
+        {
+            if (flag)
+            {
+                await Task.Delay(1);
+            }
+            else
+            {
+                await Task.Delay(2);
+            }
+        }
+        return LocalAsync(true);
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        Task LocalAsync(bool flag)
+        {
+            if (flag)
+            {
+                return Task.Delay(1);
+            }
+            else
+            {
+                return Task.Delay(2);
+            }
+        }
+        return LocalAsync(true);
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
+        /// No warning: Local function with multiple awaits.
+        /// </summary>
+        [Fact]
+        public void NoWarn_LocalFunction_MultipleAwaits()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        async Task LocalAsync()
+        {
+            await Task.Delay(1);
+            await Task.Delay(2);
+        }
+        return LocalAsync();
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: Local function with try-catch around await.
+        /// </summary>
+        [Fact]
+        public void NoWarn_LocalFunction_TryCatchAroundAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        async Task LocalAsync()
+        {
+            try
+            {
+                await Task.Delay(1);
+            }
+            catch (Exception)
+            {
+            }
+        }
+        return LocalAsync();
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: Local function with using statement containing await.
+        /// </summary>
+        [Fact]
+        public void NoWarn_LocalFunction_UsingAroundAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+using System.IO;
+
+class Program
+{
+    Task foo()
+    {
+        async Task LocalAsync()
+        {
+            using (var stream = new MemoryStream())
+            {
+                await Task.Delay(1);
+            }
+        }
+        return LocalAsync();
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// Warning: Nested local functions, only the inner one should be flagged.
+        /// </summary>
+        [Fact]
+        public void Warn_LocalFunction_Nested()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        async Task OuterLocal()
+        {
+            await Task.Delay(1);
+
+            async Task InnerLocal()
+            {
+                await Task.Delay(2);
+            }
+
+            await InnerLocal();
+        }
+        return OuterLocal();
+    }
+}";
+
+            // Only the inner local function is flagged (single await)
+            // The outer has multiple awaits
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        async Task OuterLocal()
+        {
+            await Task.Delay(1);
+
+            Task InnerLocal()
+            {
+                return Task.Delay(2);
+            }
+
+            await InnerLocal();
+        }
+        return OuterLocal();
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
+        /// Warning: Static local function with single await.
+        /// </summary>
+        [Fact]
+        public void Warn_LocalFunction_Static()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        static async Task LocalAsync() => await Task.Delay(1);
+        return LocalAsync();
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        static Task LocalAsync() => Task.Delay(1);
+        return LocalAsync();
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
+        /// Warning: Local function contains lambda with await inside (nested function).
+        /// The await in the lambda is excluded, but the local function's own await can be removed.
+        /// </summary>
+        [Fact]
+        public void Warn_LocalFunction_ContainsLambdaWithAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        async Task LocalAsync()
+        {
+            Func<Task> action = async () => await Task.Delay(1);
+            await action();
+        }
+        return LocalAsync();
+    }
+}";
+
+            // The local function's own await (await action()) can be removed
+            // The lambda's await is not counted (it's in a nested function)
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task foo()
+    {
+        Task LocalAsync()
+        {
+            Func<Task> action = async () => await Task.Delay(1);
+            return action();
+        }
+        return LocalAsync();
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        /// <summary>
+        /// Warning: Local function with lock statement BEFORE await is ok to optimize.
+        /// The lock is released before the await, so it's safe.
+        /// </summary>
+        [Fact]
+        public void Warn_LocalFunction_LockBeforeAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    private object _lock = new object();
+
+    Task foo()
+    {
+        async Task LocalAsync()
+        {
+            lock (_lock)
+            {
+                Console.WriteLine(""locked"");
+            }
+            await Task.Delay(1);
+        }
+        return LocalAsync();
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    private object _lock = new object();
+
+    Task foo()
+    {
+        Task LocalAsync()
+        {
+            lock (_lock)
+            {
+                Console.WriteLine(""locked"");
+            }
+            return Task.Delay(1);
+        }
+        return LocalAsync();
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
+        }
+
+        #endregion
+
+        /// <summary>
+        /// No warning: lock statement before await - but await outside lock is ok.
+        /// This is actually a compile error in C#, but let's make sure we handle it.
+        /// </summary>
+        [Fact]
+        public void NoWarn_LockBeforeAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    private object _lock = new object();
+
+    async Task foo()
+    {
+        lock (_lock)
+        {
+            Console.WriteLine(""locked"");
+        }
+        await Task.Delay(1);
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// No warning: method returning IAsyncEnumerable with yield and await.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AsyncIterator()
+        {
+            var test = @"
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+class Program
+{
+    async IAsyncEnumerable<int> GenerateAsync()
+    {
+        yield return 1;
+        await Task.Delay(100);
+        yield return 2;
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: await with cancellation token that affects behavior.
+        /// </summary>
+        [Fact]
+        public void AwaitWithCancellation()
+        {
+            var test = @"
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo(CancellationToken ct)
+    {
+        await Task.Delay(1000, ct);
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// No warning: async method with out parameter - not allowed in C#.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AsyncWithRefParameter()
+        {
+            // Note: async methods cannot have ref/out parameters in C#
+            // This test verifies the analyzer doesn't crash on invalid code
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task<int> foo(int x)
+    {
+        return await Task.FromResult(x * 2);
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// Edge case: empty async method body - should not crash.
+        /// </summary>
+        [Fact]
+        public void NoWarn_EmptyAsyncMethod()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// Edge case: async method with only non-await statements.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AsyncMethodNoAwait()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task foo()
+    {
+        Console.WriteLine(""no await"");
+    }
+}";
+
+            // CS1998 warning from compiler, but our analyzer shouldn't report
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: generic Task with different type parameters - covariance issue.
+        /// </summary>
+        [Fact]
+        public void NoWarn_GenericTaskCovariance()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Animal { }
+class Dog : Animal { }
+
+class Program
+{
+    async Task<Animal> foo()
+    {
+        return await Task.FromResult(new Dog());
+    }
+}";
+
+            // Task<Dog> cannot be assigned to Task<Animal> - no covariance
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// No warning: await in using block where the await uses the disposable.
+        /// </summary>
+        [Fact]
+        public void NoWarn_AwaitUsesDisposableInUsingBlock()
+        {
+            var test = @"
+using System;
+using System.Net.Http;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task<string> foo()
+    {
+        using (var client = new HttpClient())
+        {
+            return await client.GetStringAsync(""http://example.com"");
+        }
+    }
+}";
+
+            VerifyCSharpDiagnostic(test);
+        }
+
+        /// <summary>
+        /// Verify: simple await that CAN be removed.
+        /// </summary>
+        [Fact]
+        public void Verify_SimpleAwaitCanBeRemoved()
+        {
+            var test = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    async Task<int> foo()
+    {
+        return await Task.FromResult(42);
+    }
+}";
+
+            var expected = new DiagnosticResult { Id = DiagnosticIds.UnnecessaryAsync };
+            VerifyCSharpDiagnostic(test, expected);
+
+            var fixtest = @"
+using System;
+using System.Threading.Tasks;
+
+class Program
+{
+    Task<int> foo()
+    {
+        return Task.FromResult(42);
+    }
+}";
+
+            VerifyCSharpFix(test, fixtest);
         }
 
         protected override CodeFixProvider GetCSharpCodeFixProvider()

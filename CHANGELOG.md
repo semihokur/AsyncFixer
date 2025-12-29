@@ -2,6 +2,8 @@
 
 ## 2.1.0 (2025-12)
 
+- **AsyncFixer01**: Add support for analyzing and fixing async local functions.
+- **AsyncFixer01**: Detect unnecessary async in methods with terminal awaits in all if-else branches.
 - **AsyncFixer04**: Detect fire-and-forget async calls in `using var` declarations (C# 8.0+) and warn when a task is returned from a using scope without being awaited. The disposable resource will be disposed before the returned task completes. ([#13](https://github.com/semihokur/AsyncFixer/issues/13))
 - **AsyncFixer04**: Fix false positive when task is assigned to a variable and awaited later within the same using block (e.g., `await Task.WhenAny(task, ...)`).
 - **AsyncFixer06**: Fix false positive for `Assert.ThrowsAsync` and similar assertion methods where discarding the `Task<T>` result is intentional.

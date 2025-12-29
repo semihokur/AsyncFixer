@@ -37,8 +37,16 @@ namespace AsyncFixer.UnnecessaryAsync
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
             context.RegisterSyntaxNodeAction(AnalyzeMethodDeclaration, SyntaxKind.MethodDeclaration);
+            context.RegisterSyntaxNodeAction(AnalyzeLocalFunctionDeclaration, SyntaxKind.LocalFunctionStatement);
         }
 
+        /// <summary>
+        /// Determines whether a node is within a using statement, using declaration, or try block.
+        /// Removing async/await in these scopes would cause premature disposal or change exception handling.
+        /// </summary>
+        /// <param name="node">The syntax node to check.</param>
+        /// <param name="root">The root node (method body) to stop traversal at.</param>
+        /// <returns>True if the node is in a scope where async/await removal would be unsafe.</returns>
         private bool IsInUsingOrTryScope(SyntaxNode node, SyntaxNode root)
         {
             if (node == root) return false;
@@ -81,33 +89,104 @@ namespace AsyncFixer.UnnecessaryAsync
             return IsInUsingOrTryScope(parent, root);
         }
 
+        /// <summary>
+        /// Analyzes an async method declaration to determine if the async/await keywords are unnecessary.
+        /// Reports a diagnostic if the method can be simplified by removing async/await and returning the task directly.
+        /// </summary>
+        /// <param name="context">The syntax node analysis context containing the method declaration.</param>
         private void AnalyzeMethodDeclaration(SyntaxNodeAnalysisContext context)
         {
             var node = (MethodDeclarationSyntax)context.Node;
-            var diagnostic = Diagnostic.Create(Rule, node.GetLocation(), node.Identifier.Text);
 
             if (!node.IsAsync() || node.HasEventArgsParameter(context.SemanticModel) || node.HasObjectStateParameter() || node.IsTestMethod())
             {
                 return;
             }
 
-            var awaitForEachStatements = node.DescendantNodes().OfType<ForEachStatementSyntax>()
-                .Where(a => a.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword) && a.FirstAncestorOrSelfUnderGivenNode<LambdaExpressionSyntax>(node) == null).ToList();
+            AnalyzeAsyncFunction(
+                context,
+                node,
+                node.Identifier.Text,
+                node.Body,
+                node.ExpressionBody,
+                node.ReturnType,
+                node.ReturnsVoid());
+        }
+
+        /// <summary>
+        /// Analyzes an async local function declaration to determine if the async/await keywords are unnecessary.
+        /// Reports a diagnostic if the local function can be simplified by removing async/await and returning the task directly.
+        /// </summary>
+        /// <param name="context">The syntax node analysis context containing the local function declaration.</param>
+        private void AnalyzeLocalFunctionDeclaration(SyntaxNodeAnalysisContext context)
+        {
+            var node = (LocalFunctionStatementSyntax)context.Node;
+
+            if (!node.Modifiers.Any(SyntaxKind.AsyncKeyword))
+            {
+                return;
+            }
+
+            // Check if return type is void (for async void local functions)
+            var returnsVoid = node.ReturnType is PredefinedTypeSyntax predefined &&
+                              predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
+
+            AnalyzeAsyncFunction(
+                context,
+                node,
+                node.Identifier.Text,
+                node.Body,
+                node.ExpressionBody,
+                node.ReturnType,
+                returnsVoid);
+        }
+
+        /// <summary>
+        /// Common analysis logic for both method declarations and local function declarations.
+        /// </summary>
+        private void AnalyzeAsyncFunction(
+            SyntaxNodeAnalysisContext context,
+            SyntaxNode functionNode,
+            string functionName,
+            BlockSyntax body,
+            ArrowExpressionClauseSyntax expressionBody,
+            TypeSyntax returnType,
+            bool returnsVoid)
+        {
+            var diagnostic = Diagnostic.Create(Rule, functionNode.GetLocation(), functionName);
+
+            // Exclude await expressions under lambdas and nested local functions
+            bool IsUnderNestedFunction(SyntaxNode node)
+            {
+                var current = node.Parent;
+                while (current != null && current != functionNode)
+                {
+                    if (current is LambdaExpressionSyntax || current is LocalFunctionStatementSyntax)
+                    {
+                        return true;
+                    }
+                    current = current.Parent;
+                }
+                return false;
+            }
+
+            var awaitForEachStatements = functionNode.DescendantNodes().OfType<ForEachStatementSyntax>()
+                .Where(a => a.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword) && !IsUnderNestedFunction(a)).ToList();
 
             if (awaitForEachStatements.Any())
             {
-                return; 
-            }            
+                return;
+            }
 
-            // Retrieve all await expressions excluding the ones under lambda functions.
-            var awaitExpressions = node.DescendantNodes().OfType<AwaitExpressionSyntax>().Where(a => a.FirstAncestorOrSelfUnderGivenNode<LambdaExpressionSyntax>(node) == null).ToList();
+            // Retrieve all await expressions excluding the ones under lambda functions or nested local functions.
+            var awaitExpressions = functionNode.DescendantNodes().OfType<AwaitExpressionSyntax>()
+                .Where(a => !IsUnderNestedFunction(a)).ToList();
 
-            if (node.Body == null &&
-                node.ExpressionBody?.Expression.Kind() == SyntaxKind.AwaitExpression)
+            if (body == null && expressionBody?.Expression.Kind() == SyntaxKind.AwaitExpression)
             {
-                // Expression-bodied members 
+                // Expression-bodied members
                 // e.g. public static async Task Foo() => await Task.FromResult(true);
-                var returnExpressionType = context.SemanticModel.GetTypeInfo(node.ExpressionBody?.Expression);
+                var returnExpressionType = context.SemanticModel.GetTypeInfo(expressionBody?.Expression);
                 if (returnExpressionType.IsImplicitTypeCasting())
                 {
                     // Task does not support covariance: Task<int> cannot be converted to Task<object>.
@@ -130,13 +209,12 @@ namespace AsyncFixer.UnnecessaryAsync
                 return;
             }
 
-
-            if (node.Body == null || context.SemanticModel == null)
+            if (body == null || context.SemanticModel == null)
             {
                 return;
             }
 
-            var controlFlow = context.SemanticModel.AnalyzeControlFlow(node.Body);
+            var controlFlow = context.SemanticModel.AnalyzeControlFlow(body);
             var returnStatements = controlFlow?.ReturnStatements ?? ImmutableArray<SyntaxNode>.Empty;
             var numAwaitsToRemove = 0;
 
@@ -162,7 +240,8 @@ namespace AsyncFixer.UnnecessaryAsync
                         return;
                     }
 
-                    if (!WillFixedExpressionBeCorrect(returnStatement.Expression as AwaitExpressionSyntax)) {
+                    if (!WillFixedExpressionBeCorrect(returnStatement.Expression as AwaitExpressionSyntax))
+                    {
                         return;
                     }
 
@@ -177,28 +256,42 @@ namespace AsyncFixer.UnnecessaryAsync
                 //    await Task.FromResult(3); ==> this is NOT the last statement because of the using block.
                 // }
 
-                var lastStatement = node.Body.Statements.LastOrDefault();
+                var lastStatement = body.Statements.LastOrDefault();
 
                 if (lastStatement is BlockSyntax block)
                 {
                     lastStatement = block.Statements.LastOrDefault();
                 }
 
-                if ((lastStatement as ExpressionStatementSyntax)?.Expression?.Kind() != SyntaxKind.AwaitExpression)
+                if ((lastStatement as ExpressionStatementSyntax)?.Expression?.Kind() == SyntaxKind.AwaitExpression)
+                {
+                    if (!IsSafeToRemoveAsyncAwait(lastStatement))
+                    {
+                        return;
+                    }
+
+                    if (!WillFixedExpressionBeCorrect((lastStatement as ExpressionStatementSyntax)?.Expression as AwaitExpressionSyntax))
+                    {
+                        return;
+                    }
+
+                    numAwaitsToRemove++;
+                }
+                else if (lastStatement is IfStatementSyntax)
+                {
+                    // Check if awaits are in terminal if-else branches
+                    var terminalIfElseAwaits = GetTerminalIfElseAwaits(body, functionNode, awaitExpressions, context);
+                    if (terminalIfElseAwaits == null)
+                    {
+                        return;
+                    }
+
+                    numAwaitsToRemove += terminalIfElseAwaits.Count;
+                }
+                else
                 {
                     return;
                 }
-
-                if (!IsSafeToRemoveAsyncAwait(lastStatement))
-                {
-                    return;
-                }
-
-                if (!WillFixedExpressionBeCorrect((lastStatement as ExpressionStatementSyntax)?.Expression as AwaitExpressionSyntax)) {
-                    return;
-                }
-
-                numAwaitsToRemove++;
             }
 
             if (numAwaitsToRemove < awaitExpressions.Count())
@@ -210,7 +303,7 @@ namespace AsyncFixer.UnnecessaryAsync
 
             bool IsSafeToRemoveAsyncAwait(StatementSyntax statement)
             {
-                if (IsInUsingOrTryScope(statement, node))
+                if (IsInUsingOrTryScope(statement, functionNode))
                 {
                     // If it is under 'using' or 'try' block, it is not safe to remove async/await.
                     return false;
@@ -223,7 +316,7 @@ namespace AsyncFixer.UnnecessaryAsync
             {
                 // When fixing we remove calls to ConfigureAwait:
                 var fixedExpression = Helpers.RemoveConfigureAwait(fixableExpression.Expression);
-                
+
                 // Let's check that the types match. There can be a mismatch, for example,
                 // if we are awaiting a ValueTask in a Task-returning method, i.e. this compiles:
                 //     ValueTask<int> Foo() => ValueTask.FromResult(0);
@@ -237,7 +330,7 @@ namespace AsyncFixer.UnnecessaryAsync
                 }
 
                 ITypeSymbol desiredReturnType;
-                if (node.ReturnsVoid())
+                if (returnsVoid)
                 {
                     // The fixer changes `async void` to `Task`.
                     desiredReturnType = context.SemanticModel.Compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
@@ -248,7 +341,7 @@ namespace AsyncFixer.UnnecessaryAsync
                 }
                 else
                 {
-                    desiredReturnType = context.SemanticModel.GetTypeInfo(node.ReturnType).Type;
+                    desiredReturnType = context.SemanticModel.GetTypeInfo(returnType).Type;
                     if (desiredReturnType == null)
                     {
                         return false;
@@ -261,6 +354,214 @@ namespace AsyncFixer.UnnecessaryAsync
                 var conversion = context.SemanticModel.Compilation.ClassifyConversion(fixedExpressionType, desiredReturnType);
                 return conversion.Exists && conversion.IsImplicit;
             }
+        }
+
+        /// <summary>
+        /// Gets await expressions that are terminal statements in if-else branches where
+        /// the if-else is the last statement in the function body.
+        /// Returns null if the pattern doesn't match or is unsafe to transform.
+        /// </summary>
+        private List<AwaitExpressionSyntax> GetTerminalIfElseAwaits(
+            BlockSyntax body,
+            SyntaxNode functionNode,
+            List<AwaitExpressionSyntax> allAwaitExpressions,
+            SyntaxNodeAnalysisContext context)
+        {
+            var lastStatement = body.Statements.LastOrDefault();
+            if (lastStatement == null)
+            {
+                return null;
+            }
+
+            // Handle case where last statement is wrapped in a block
+            if (lastStatement is BlockSyntax block)
+            {
+                lastStatement = block.Statements.LastOrDefault();
+                if (lastStatement == null)
+                {
+                    return null;
+                }
+            }
+
+            if (!(lastStatement is IfStatementSyntax ifStatement))
+            {
+                return null;
+            }
+
+            // Get return type for type compatibility checks
+            TypeSyntax returnType = null;
+            bool returnsVoid = false;
+            if (functionNode is MethodDeclarationSyntax method)
+            {
+                returnType = method.ReturnType;
+                returnsVoid = method.ReturnsVoid();
+            }
+            else if (functionNode is LocalFunctionStatementSyntax localFunc)
+            {
+                returnType = localFunc.ReturnType;
+                returnsVoid = localFunc.ReturnType is PredefinedTypeSyntax predefined &&
+                              predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
+            }
+
+            var terminalAwaits = new List<AwaitExpressionSyntax>();
+            if (!CollectTerminalAwaitsFromIfElse(ifStatement, terminalAwaits, functionNode, returnType, returnsVoid, allAwaitExpressions, context))
+            {
+                return null;
+            }
+
+            return terminalAwaits;
+        }
+
+        /// <summary>
+        /// Recursively collects terminal await expressions from if-else branches.
+        /// Returns false if any branch doesn't end with an await or is unsafe.
+        /// </summary>
+        private bool CollectTerminalAwaitsFromIfElse(
+            IfStatementSyntax ifStatement,
+            List<AwaitExpressionSyntax> terminalAwaits,
+            SyntaxNode functionNode,
+            TypeSyntax returnType,
+            bool returnsVoid,
+            List<AwaitExpressionSyntax> allAwaitExpressions,
+            SyntaxNodeAnalysisContext context)
+        {
+            // Check the "then" branch
+            if (!CollectTerminalAwaitFromBranch(ifStatement.Statement, terminalAwaits, functionNode, returnType, returnsVoid, allAwaitExpressions, context))
+            {
+                return false;
+            }
+
+            // Must have an else branch for all paths to be covered
+            if (ifStatement.Else == null)
+            {
+                return false;
+            }
+
+            // Check the "else" branch - could be another if-else (else if) or a regular statement
+            var elseStatement = ifStatement.Else.Statement;
+            if (elseStatement is IfStatementSyntax nestedIf)
+            {
+                // else if - recurse
+                return CollectTerminalAwaitsFromIfElse(nestedIf, terminalAwaits, functionNode, returnType, returnsVoid, allAwaitExpressions, context);
+            }
+            else
+            {
+                // Regular else block
+                return CollectTerminalAwaitFromBranch(elseStatement, terminalAwaits, functionNode, returnType, returnsVoid, allAwaitExpressions, context);
+            }
+        }
+
+        /// <summary>
+        /// Collects the terminal await from a single branch (if body or else body).
+        /// Returns false if the branch doesn't end with a single await or is unsafe.
+        /// </summary>
+        private bool CollectTerminalAwaitFromBranch(
+            StatementSyntax branchStatement,
+            List<AwaitExpressionSyntax> terminalAwaits,
+            SyntaxNode functionNode,
+            TypeSyntax returnType,
+            bool returnsVoid,
+            List<AwaitExpressionSyntax> allAwaitExpressions,
+            SyntaxNodeAnalysisContext context)
+        {
+            StatementSyntax lastStatement = branchStatement;
+
+            // If it's a block, get the last statement
+            if (branchStatement is BlockSyntax block)
+            {
+                lastStatement = block.Statements.LastOrDefault();
+                if (lastStatement == null)
+                {
+                    return false;
+                }
+            }
+
+            // The last statement must be an expression statement with an await
+            if (!(lastStatement is ExpressionStatementSyntax exprStmt))
+            {
+                return false;
+            }
+
+            if (!(exprStmt.Expression is AwaitExpressionSyntax awaitExpr))
+            {
+                return false;
+            }
+
+            // Make sure this await is in our list (not under a lambda or nested local function)
+            if (!allAwaitExpressions.Contains(awaitExpr))
+            {
+                return false;
+            }
+
+            // Check if it's safe (not in using/try scope)
+            if (IsInUsingOrTryScope(lastStatement, functionNode))
+            {
+                return false;
+            }
+
+            // Check type compatibility
+            var fixedExpression = Helpers.RemoveConfigureAwait(awaitExpr.Expression);
+            var fixedExpressionType = context.SemanticModel.GetTypeInfo(fixedExpression).Type;
+            if (fixedExpressionType == null)
+            {
+                return false;
+            }
+
+            ITypeSymbol desiredReturnType;
+            if (returnsVoid)
+            {
+                desiredReturnType = context.SemanticModel.Compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
+                if (desiredReturnType == null)
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                desiredReturnType = context.SemanticModel.GetTypeInfo(returnType).Type;
+                if (desiredReturnType == null)
+                {
+                    return false;
+                }
+            }
+
+            var conversion = context.SemanticModel.Compilation.ClassifyConversion(fixedExpressionType, desiredReturnType);
+            if (!conversion.Exists || !conversion.IsImplicit)
+            {
+                return false;
+            }
+
+            // Check that the await is the ONLY await in this branch (no other awaits before it)
+            // Exclude awaits under lambdas or nested local functions
+            var awaitsInBranch = branchStatement.DescendantNodes()
+                .OfType<AwaitExpressionSyntax>()
+                .Where(a => !IsUnderNestedFunction(a, functionNode))
+                .ToList();
+
+            if (awaitsInBranch.Count != 1)
+            {
+                return false;
+            }
+
+            terminalAwaits.Add(awaitExpr);
+            return true;
+        }
+
+        /// <summary>
+        /// Checks if a node is under a lambda or nested local function within the given function node.
+        /// </summary>
+        private static bool IsUnderNestedFunction(SyntaxNode node, SyntaxNode functionNode)
+        {
+            var current = node.Parent;
+            while (current != null && current != functionNode)
+            {
+                if (current is LambdaExpressionSyntax || current is LocalFunctionStatementSyntax)
+                {
+                    return true;
+                }
+                current = current.Parent;
+            }
+            return false;
         }
 
     }
