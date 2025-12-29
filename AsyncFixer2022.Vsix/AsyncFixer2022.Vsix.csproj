@@ -34,7 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="icon.png">
+    <Content Include="..\icon.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>

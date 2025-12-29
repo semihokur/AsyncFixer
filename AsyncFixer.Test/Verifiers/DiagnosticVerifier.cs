@@ -99,7 +99,7 @@ namespace TestHelper
 
             if (expectedCount != actualCount)
             {
-                var diagnosticsOutput = actualResults.Any()
+                var diagnosticsOutput = actualResults is ICollection<Diagnostic> { Count: > 0 } || actualResults.Any()
                     ? FormatDiagnostics(analyzer, actualResults.ToArray())
                     : "    NONE.";
 
@@ -111,7 +111,7 @@ namespace TestHelper
 
             if (expectedCount != 0)
             {
-                Assert.True(actualResults.Any(a => expectedResults.Any(b => a.Id == b.Id)));
+                Assert.Contains(actualResults, a => expectedResults.Any(b => a.Id == b.Id));
             }
         }
 

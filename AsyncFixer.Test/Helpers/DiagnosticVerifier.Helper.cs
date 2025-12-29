@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 
 namespace TestHelper
@@ -15,11 +16,34 @@ namespace TestHelper
     /// </summary>
     public abstract partial class DiagnosticVerifier
     {
-        private static readonly MetadataReference CorlibReference = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
-        private static readonly MetadataReference SystemCoreReference = MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location);
         private static readonly MetadataReference CSharpSymbolsReference = MetadataReference.CreateFromFile(typeof(CSharpCompilation).Assembly.Location);
         private static readonly MetadataReference CodeAnalysisReference = MetadataReference.CreateFromFile(typeof(Compilation).Assembly.Location);
-        private static readonly MetadataReference SystemRuntimeReference = MetadataReference.CreateFromFile(typeof(System.Threading.Tasks.Task).Assembly.Location);
+
+        private static ImmutableArray<MetadataReference> GetDefaultReferences()
+        {
+            // Under .NET (Core/5+/8), framework types live in multiple assemblies (e.g. System.Runtime, System.Console).
+            // Using TRUSTED_PLATFORM_ASSEMBLIES is the most reliable way to build an in-memory compilation for tests.
+            var tpa = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
+            if (!string.IsNullOrWhiteSpace(tpa))
+            {
+                ImmutableArray<MetadataReference> refs = tpa
+                    .Split(Path.PathSeparator)
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Select(p => (MetadataReference)MetadataReference.CreateFromFile(p))
+                    .ToImmutableArray();
+
+                return refs
+                    .Add(CSharpSymbolsReference)
+                    .Add(CodeAnalysisReference);
+            }
+
+            // Fallback (primarily for older/non-.NET Core runtimes).
+            return ImmutableArray.Create<MetadataReference>(
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+                CSharpSymbolsReference,
+                CodeAnalysisReference);
+        }
 
         internal static string DefaultFilePathPrefix = "Test";
         internal static string CSharpDefaultFileExt = "cs";
@@ -149,12 +173,12 @@ namespace TestHelper
 
             var solution = new AdhocWorkspace()
                 .CurrentSolution
-                .AddProject(projectId, TestProjectName, TestProjectName, language)
-                .AddMetadataReference(projectId, CorlibReference)
-                .AddMetadataReference(projectId, SystemCoreReference)
-                .AddMetadataReference(projectId, CSharpSymbolsReference)
-                .AddMetadataReference(projectId, CodeAnalysisReference)
-                .AddMetadataReference(projectId, SystemRuntimeReference);
+                .AddProject(projectId, TestProjectName, TestProjectName, language);
+
+            foreach (var reference in GetDefaultReferences())
+            {
+                solution = solution.AddMetadataReference(projectId, reference);
+            }
 
             int count = 0;
             foreach (var source in sources)

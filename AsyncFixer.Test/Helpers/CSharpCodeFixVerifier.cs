@@ -1,9 +1,10 @@
-﻿using Microsoft.CodeAnalysis;
+﻿#nullable enable
+
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
-using Microsoft.CodeAnalysis.Testing.Verifiers;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CSharp;
 using System.Collections.Immutable;
@@ -23,13 +24,13 @@ namespace AsyncFixer.Test.Helpers
            where TCodeFix : CodeFixProvider, new()
     {
         public static DiagnosticResult Diagnostic()
-            => CSharpCodeFixVerifier<TAnalyzer, TCodeFix, XUnitVerifier>.Diagnostic();
+            => CSharpCodeFixVerifier<TAnalyzer, TCodeFix, DefaultVerifier>.Diagnostic();
 
         public static DiagnosticResult Diagnostic(string diagnosticId)
-            => CSharpCodeFixVerifier<TAnalyzer, TCodeFix, XUnitVerifier>.Diagnostic(diagnosticId);
+            => CSharpCodeFixVerifier<TAnalyzer, TCodeFix, DefaultVerifier>.Diagnostic(diagnosticId);
 
         public static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor)
-            => CSharpCodeFixVerifier<TAnalyzer, TCodeFix, XUnitVerifier>.Diagnostic(descriptor);
+            => CSharpCodeFixVerifier<TAnalyzer, TCodeFix, DefaultVerifier>.Diagnostic(descriptor);
 
         public static async Task VerifyAnalyzerAsync(string source, params DiagnosticResult[] expected)
         {
@@ -69,7 +70,7 @@ namespace AsyncFixer.Test.Helpers
             }.RunAsync();
         }
 
-        public class Test : CSharpCodeFixTest<TAnalyzer, TCodeFix, XUnitVerifier>
+        public class Test : CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
         {
             public Test()
             {
