@@ -426,6 +426,172 @@ class Program
             VerifyCSharpDiagnostic(test);
         }
 
+        /// <summary>
+        /// Issue #28: Warn when using declaration has task assigned to variable and returned via Task.WhenAny
+        /// The disposable (cts) is used in Task.Delay, stored in a variable, and returned via Task.WhenAny without await.
+        /// </summary>
+        [Fact]
+        public void ReturnTaskFromUsingDeclaration_WithCancellationToken()
+        {
+            var test = @"
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+class Program
+{
+    static Task foo()
+    {
+        using var cts = new CancellationTokenSource();
+        var a = Task.Delay(1, cts.Token);
+        var b = Task.Delay(1, cts.Token);
+        return Task.WhenAny(a, b);
+    }
+}";
+            // Should warn for both usages of cts.Token since the tasks are returned without being awaited
+            var expected1 = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            var expected2 = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected1, expected2);
+        }
+
+        /// <summary>
+        /// Issue #28: This test confirms the exact scenario from the issue - task stored in variable, then returned.
+        /// This is the pattern that was NOT being detected for using declarations.
+        /// </summary>
+        [Fact]
+        public void ReturnTaskFromUsingDeclaration_TaskStoredThenReturned()
+        {
+            var test = @"
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+class Program
+{
+    static Task foo()
+    {
+        using var stream = new FileStream("""", FileMode.Open);
+        var task = stream.CopyToAsync(new MemoryStream());
+        return task;
+    }
+}";
+            // Should warn because the task using 'stream' is returned without await
+            var expected = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// Issue #28: Test case where task is stored and then passed to Task.WhenAny -
+        /// this is NOT returned directly but the variable is returned later.
+        /// This tests the scenario where the return statement does not contain the disposable identifier.
+        /// </summary>
+        [Fact]
+        public void Issue28_UsingDeclaration_TaskStoredAndReturnedViaThenAny()
+        {
+            var test = @"
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+class Program
+{
+    static Task foo()
+    {
+        using var cts = new CancellationTokenSource();
+        var a = Task.Delay(1, cts.Token);
+        var b = Task.Delay(1, cts.Token);
+        return Task.WhenAny(a, b);
+    }
+}";
+            // Should warn for both usages of cts.Token - the tasks are NOT awaited within the using scope
+            var expected1 = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            var expected2 = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected1, expected2);
+        }
+
+        /// <summary>
+        /// Contrasting test - using block (with braces) for the same pattern should also warn
+        /// </summary>
+        [Fact]
+        public void Issue28_UsingBlock_TaskStoredAndReturnedViaWhenAny()
+        {
+            var test = @"
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+class Program
+{
+    static Task foo()
+    {
+        using (var cts = new CancellationTokenSource())
+        {
+            var a = Task.Delay(1, cts.Token);
+            var b = Task.Delay(1, cts.Token);
+            return Task.WhenAny(a, b);
+        }
+    }
+}";
+            // Should warn for both usages of cts.Token
+            var expected1 = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            var expected2 = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected1, expected2);
+        }
+
+        /// <summary>
+        /// Test to verify - if we expect NO warnings, the test should FAIL (confirming analyzer works)
+        /// </summary>
+        [Fact]
+        public void Issue28_VerifyAnalyzerDetectsIssue()
+        {
+            var test = @"
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+class Program
+{
+    static Task foo()
+    {
+        using var cts = new CancellationTokenSource();
+        var a = Task.Delay(1, cts.Token);
+        return a;
+    }
+}";
+            // This should warn - if the analyzer works correctly
+            var expected = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected);
+        }
+
+        /// <summary>
+        /// Issue #28: Using statement with braces should warn (this already works)
+        /// </summary>
+        [Fact]
+        public void ReturnTaskFromUsingBlock_WithCancellationToken()
+        {
+            var test = @"
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+class Program
+{
+    static Task foo()
+    {
+        using (var cts = new CancellationTokenSource())
+        {
+            var a = Task.Delay(1, cts.Token);
+            var b = Task.Delay(1, cts.Token);
+            return Task.WhenAny(a, b);
+        }
+    }
+}";
+            // Should warn for both usages of cts.Token
+            var expected1 = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            var expected2 = new DiagnosticResult { Id = DiagnosticIds.AsyncCallInsideUsingBlock };
+            VerifyCSharpDiagnostic(test, expected1, expected2);
+        }
+
         protected override DiagnosticAnalyzer GetCSharpDiagnosticAnalyzer()
         {
             return new AsyncCallInsideUsingBlockAnalyzer();
