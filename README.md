@@ -7,7 +7,17 @@ AsyncFixer helps developers find and correct common `async/await` misuses (anti-
 
 ## Installation
 
-**NuGet (Recommended):** Install as a project-local analyzer that participates in builds:
+### Visual Studio Extension (VSIX)
+
+AsyncFixer works directly in the IDE as an analyzer on every project you open in Visual Studio. It can also operate in batch mode to correct all async/await misuses across a document, project, or solution.
+
+- [AsyncFixer for Visual Studio 2022-2026](https://marketplace.visualstudio.com/items?itemName=SemihOkur.AsyncFixer2022)
+- [AsyncFixer for Visual Studio 2019](https://marketplace.visualstudio.com/items?itemName=SemihOkur.AsyncFixer)
+- [AsyncFixer for Visual Studio 2017](https://marketplace.visualstudio.com/items?itemName=SemihOkur.AsyncFixer2017)
+
+### NuGet Package (Recommended)
+
+If you want AsyncFixer to work as a project-local analyzer that participates in builds, install it as a NuGet package. Attaching an analyzer to a project means that the analyzer travels with the project to source control, making it easy to apply the same rules across your team.
 
 ```bash
 dotnet add package AsyncFixer
@@ -18,7 +28,7 @@ Or via Package Manager:
 Install-Package AsyncFixer
 ```
 
-**VSIX:** Install as a Visual Studio extension from the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=SemihOkur.AsyncFixer2022).
+Download from [NuGet Gallery](https://www.nuget.org/packages/AsyncFixer).
 
 ## Quick Reference
 
